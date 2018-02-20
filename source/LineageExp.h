@@ -48,7 +48,6 @@ public:
 
   };
 
-  // TODO: probably should have constructor stuff related to scores moved up to Agent base struct.
   struct SignalGPAgent : Agent {
     using Agent::scores_by_testcase;
     SGP__program_t program;
@@ -274,44 +273,27 @@ public:
     // TODO (@steven): agp inst lib.
 
     // TODO: setup data-recording file.
+
+    // Config experiment based on representation type.
+    switch (REPRESENTATION) {
+      case REPRESENTATION_ID__AVIDAGP:
+        ConfigAGP();
+        break;
+      case REPRESENTATION_ID__SIGNALGP:
+        ConfigSGP();
+        break;
+      default:
+        std::cout << "Unrecognized representation configuration setting (" << REPRESENTATION << "). Exiting..." << std::endl;
+        exit(-1);
+    }
   }
 
   ~LineageExp() {
     // TODO
   }
 
-  void ConfigSGP() {
-    // Configure the world.
-    sgp_world->Reset();
-    sgp_world->SetWellMixed(true);
-
-    // ...
-
-    // Setup triggers!
-    // - Configure evaluation
-    do_evaluation_sig.AddAction([this]() {
-      for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
-        // ...
-      }
-    });
-    // - Configure selection
-    do_selection_sig.AddAction([this]() {
-      emp::EliteSelect(*sgp_world, 1, 1);
-      emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
-    });
-    // - Configure world upate.
-    do_world_update_sig.AddAction([this]() { sgp_world->Update(); });
-
-    // do_mutation
-
-    // do_analysis --> TODO
-
-    // do_pop_snapshot
-  }
-
-  void ConfigAGP() {
-    // TODO (@steven)
-  }
+  void ConfigSGP();
+  void ConfigAGP();
 
   void Run() {
     for (size_t ud = 0; ud < GENERATIONS; ++ud) {
@@ -327,6 +309,90 @@ public:
     do_mutation_sig.Trigger();
   }
 
+  // -- AvidaGP Instructions --
+  // TODO (@steven)
+
+  // -- SignalGP Instructions --
+  // TODO: actual instruction implementations
+  // Fork
+  void SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // BoardWidth
+  void SGP_Inst_GetBoardWidth(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // EndTurn
+  void SGP_Inst_EndTurn(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // SetMoveXY
+  void SGP__Inst_SetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_SetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // GetMoveXY
+  void SGP__Inst_GetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_GetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // IsValidXY
+  void SGP__Inst_IsValidXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_IsValidID(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // AdjacentXY
+  void SGP__Inst_AdjacentXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_AdjacentID(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // ValidMovesCnt
+  void SGP_Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // ValidOppMovesCnt
+  void SGP_Inst_ValidOppMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // GetBoardValue
+  void SGP_Inst_GetBoardValueXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP_Inst_GetBoardValueID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // PlaceXY
+  void SGP_Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP_Inst_PlaceDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // PlaceOppXY
+  void SGP_Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP_Inst_PlaceOppDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // FlipCntXY
+  void SGP_Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP_Inst_FlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // OppFlipCntXY
+  void SGP_Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP_Inst_OppFlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // FrontierCntXY
+  void SGP_Inst_FrontierCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP_Inst_FrontierCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // ResetBoard
+  void SGP_Inst_ResetBoard_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // IsOver
+  void SGP_Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+
 };
+
+void LineageExp::ConfigSGP() {
+  // Configure the world.
+  sgp_world->Reset();
+  sgp_world->SetWellMixed(true);
+
+  // Configure the instruction set.
+  // TODO
+
+  // Setup triggers!
+  // - Configure evaluation
+  do_evaluation_sig.AddAction([this]() {
+    for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
+      // ...TODO...
+    }
+  });
+  // - Configure selection
+  do_selection_sig.AddAction([this]() {
+    emp::EliteSelect(*sgp_world, 1, 1);
+    emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
+  });
+  // - Configure world upate.
+  do_world_update_sig.AddAction([this]() { sgp_world->Update(); });
+
+  // do_mutation
+
+  // do_analysis --> TODO
+
+  // do_pop_snapshot
+}
+
+void LineageExp::ConfigAGP() {
+  // TODO (@steven)
+}
 
 #endif
