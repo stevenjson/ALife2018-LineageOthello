@@ -19,23 +19,37 @@
 
 template <typename INPUT_TYPE, typename OUTPUT_TYPE>
 class TestcaseSet {
+public:
+  using input_t = INPUT_TYPE;
+  using output_t = OUTPUT_TYPE;
+
+  struct Testcase {
+    input_t input;
+    output_t output;
+    size_t id;
+
+    Testcase(const input_t & _in, const output_t & _out) : input(_in), output(_out), id(0) { ; }
+    Testcase(const Testcase & other) : input(other.input), output(other.output), id(other.id) { ; }
+  };
+
+  using test_case_t = Testcase;
+  using reader_fun_t = std::function<test_case_t(emp::vector<std::string> &)>; ///< Pass vector as reference: registered functions are free to manipulate given vector.
+
 protected:
-    using input_t = emp::vector<INPUT_TYPE>;
-    using output_t = OUTPUT_TYPE;
-    using test_case_t = std::pair<input_t, output_t>;
-    using test_case_reader_func_t = std::function<test_case_t(emp::vector<std::string>, std::string)>;
     emp::vector<test_case_t> test_cases;
-    test_case_reader_func_t input_test_case;
+    reader_fun_t input_test_case;
 
 public:
-    TestcaseSet(const test_case_reader_func_t & reader, std::string filename) {
-        RegisterTestcaseReader(reader);
-        LoadTestcases(filename);
+    TestcaseSet(const reader_fun_t & reader, std::string filename) {
+      RegisterTestcaseReader(reader);
+      LoadTestcases(filename);
     }
 
-    TestcaseSet() {}
+    TestcaseSet()
+      : test_cases(), input_test_case()
+    { ; }
 
-    emp::vector<std::pair<input_t, output_t> >& GetTestcases() {
+    emp::vector<test_case_t> & GetTestcases() {
         return test_cases;
     }
 
@@ -43,36 +57,42 @@ public:
         return emp::Choose(*random, test_cases.size(), trials);
     }
 
+    size_t GetSize() const { return test_cases.size(); }
+
     // Probably want a better name for this...
-    void RegisterTestcaseReader(const test_case_reader_func_t & reader) { input_test_case = reader; }
+    /// Reader function should: given a vector of strings to represent testcase input and a
+    /// vector of strings to represent output, return a Testcase to be added to the test case set.
+    void RegisterTestcaseReader(const reader_fun_t & reader) { input_test_case = reader; }
 
-    void LoadTestcases(std::string filename, bool contains_output = true) {
-        std::ifstream infile(filename);
-        std::string line;
-
-        if (!infile.is_open()){
-            std::cout << "ERROR: " << filename << " did not open correctly" << std::endl;
-            return;
-        }
-
-        // Ignore header
-        getline(infile, line);
-
-        while ( getline (infile,line)) {
-            emp::vector<std::string> split_line = emp::slice(line, ',');
-            emp::vector<std::string> test_case_input;
-            std::string test_case_answer;
-            for (size_t i = 0; i < split_line.size() - int(contains_output); i++) {
-              test_case_input.push_back(split_line[i].c_str());
-            }
-            if (contains_output) {
-              test_case_answer = split_line[split_line.size()-1].c_str();
-            }
-            test_cases.push_back(input_test_case(test_case_input, test_case_answer));
-            // std::cout << emp::to_string(test_case) << " " << answer << std::endl;
-        }
-        infile.close();
+    void AddTestcase(const test_case_t & test) {
+      const size_t id = test_cases.size();
+      test_cases.push_back(test);
+      test_cases.back().id = id;
     }
+
+    void AddTestcase(const input_t & input, const output_t & output) {
+      const size_t id = test_cases.size();
+      test_cases.emplace_back(input, output);
+      test_cases[id] = id;
+    }
+
+    /// Load test cases from csv file. Each line is expected to contain a full test case.
+    void LoadTestcases(std::string filename) {
+      std::ifstream infile(filename);
+      std::string line;
+      if (!infile.is_open()){
+        std::cout << "ERROR: " << filename << " did not open correctly" << std::endl;
+        return;
+      }
+      // Ignore header
+      getline(infile, line);
+      while (getline(infile,line)) {
+        emp::vector<std::string> split_line = emp::slice(line, ',');
+        AddTestcase(input_test_case(split_line));
+        // std::cout << emp::to_string(test_case) << " " << answer << std::endl;
+      }
+      infile.close();
+  }
 
 };
 
