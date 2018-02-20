@@ -251,6 +251,7 @@ protected:
 
     // Get the playerID.
     size_t playerID = std::atoi(test_case_strings.back().c_str());
+    playerID = (playerID == TESTCASE_FILE__DARK_ID) ? emp::Othello::DarkPlayerID() : emp::Othello::LightPlayerID();
     test_case_strings.resize(test_case_strings.size() - 1);
     // Get the expert move.
     size_t expert_move = std::atoi(test_case_strings.back().c_str());
@@ -494,85 +495,85 @@ void LineageExp::ConfigSGP() {
   sgp_inst_lib->AddInst("Nop", SGP__hardware_t::Inst_Nop, 0, "No operation.");
   // - Non-default instruction set.
   // TODO (@amlalejini): Fill out instruction descriptions.
-  sgp_inst_lib->AddInst("Fork", SGP__Inst_Fork, 0, "...");
-  sgp_inst_lib->AddInst("GetBoardWidth",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardWidth(hw, inst); },
-                        1, "...");
-  sgp_inst_lib->AddInst("EndTurn",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_EndTurn(hw, inst); },
-                        0, "...");
-  sgp_inst_lib->AddInst("SetMoveXY",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveXY(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("SetMoveID",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveID(hw, inst); },
-                        1, "...");
-  sgp_inst_lib->AddInst("GetMoveXY",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveXY(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("GetMoveID",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveID(hw, inst); },
-                        1, "...");
-  sgp_inst_lib->AddInst("IsValidXY",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidXY(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("IsValidID",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidID(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("AdjacentXY",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentXY(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("AdjacentID",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentID(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("ValidMoveCnt-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidMoveCnt_HW(hw, inst); },
-                        1, "...");
-  sgp_inst_lib->AddInst("ValidOppMoveCnt-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidOppMoveCnt_HW(hw, inst); },
-                        1, "...");
-  sgp_inst_lib->AddInst("GetBoardValueXY-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueXY_HW(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("GetBoardValueID-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueID_HW(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("PlaceDiskXY-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskXY_HW(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("PlaceDiskID-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskID_HW(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("PlaceOppDiskXY-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskXY_HW(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("PlaceOppDiskID-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskID_HW(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("FlipCntXY-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntXY_HW(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("FlipCntID-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntID_HW(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("OppFlipCntXY-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntXY_HW(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("OppFlipCntID-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntID_HW(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("FrontierCntXY-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntXY_HW(hw, inst); },
-                        3, "...");
-  sgp_inst_lib->AddInst("FrontierCntID-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntID_HW(hw, inst); },
-                        2, "...");
-  sgp_inst_lib->AddInst("ResetBoard-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ResetBoard_HW(hw, inst); },
-                        0, "...");
-  sgp_inst_lib->AddInst("IsOver-HW",
-                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_IsOver_HW(hw, inst); },
-                        1, "...");
+  // sgp_inst_lib->AddInst("Fork", SGP__Inst_Fork, 0, "...");
+  // sgp_inst_lib->AddInst("GetBoardWidth",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardWidth(hw, inst); },
+  //                       1, "...");
+  // sgp_inst_lib->AddInst("EndTurn",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_EndTurn(hw, inst); },
+  //                       0, "...");
+  // sgp_inst_lib->AddInst("SetMoveXY",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveXY(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("SetMoveID",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveID(hw, inst); },
+  //                       1, "...");
+  // sgp_inst_lib->AddInst("GetMoveXY",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveXY(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("GetMoveID",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveID(hw, inst); },
+  //                       1, "...");
+  // sgp_inst_lib->AddInst("IsValidXY",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidXY(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("IsValidID",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidID(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("AdjacentXY",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentXY(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("AdjacentID",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentID(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("ValidMoveCnt-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidMoveCnt_HW(hw, inst); },
+  //                       1, "...");
+  // sgp_inst_lib->AddInst("ValidOppMoveCnt-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidOppMoveCnt_HW(hw, inst); },
+  //                       1, "...");
+  // sgp_inst_lib->AddInst("GetBoardValueXY-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueXY_HW(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("GetBoardValueID-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueID_HW(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("PlaceDiskXY-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskXY_HW(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("PlaceDiskID-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskID_HW(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("PlaceOppDiskXY-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskXY_HW(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("PlaceOppDiskID-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskID_HW(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("FlipCntXY-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntXY_HW(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("FlipCntID-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntID_HW(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("OppFlipCntXY-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntXY_HW(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("OppFlipCntID-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntID_HW(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("FrontierCntXY-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntXY_HW(hw, inst); },
+  //                       3, "...");
+  // sgp_inst_lib->AddInst("FrontierCntID-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntID_HW(hw, inst); },
+  //                       2, "...");
+  // sgp_inst_lib->AddInst("ResetBoard-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ResetBoard_HW(hw, inst); },
+  //                       0, "...");
+  // sgp_inst_lib->AddInst("IsOver-HW",
+  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_IsOver_HW(hw, inst); },
+  //                       1, "...");
 
   // Setup triggers!
   // Configure initial run setup
@@ -615,7 +616,7 @@ void LineageExp::ConfigSGP() {
   do_mutation_sig.AddAction([this]() { sgp_world->DoMutations(1); });
 
   // do_pop_snapshot
-  do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
+  // do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
 
   // do_analysis --> TODO
 }
