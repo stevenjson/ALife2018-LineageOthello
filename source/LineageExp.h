@@ -1,6 +1,14 @@
 #ifndef LINEAGE_EXP_H
 #define LINEAGE_EXP_H
 
+#include <iostream>
+#include <string>
+#include <utility>
+#include <fstream>
+#include <sys/stat.h>
+#include <algorithm>
+#include <functional>
+
 #include "base/Ptr.h"
 #include "base/vector.h"
 #include "control/Signal.h"
@@ -18,10 +26,21 @@
 #include "OthelloHW.h"
 #include "lineage-config.h"
 
+constexpr int TESTCASE_FILE__DARK_ID = 1;
+constexpr int TESTCASE_FILE__LIGHT_ID = -1;
+constexpr int TESTCASE_FILE__OPEN_ID = 0;
+
 constexpr size_t SGP__TAG_WIDTH = 16;
 
 constexpr size_t REPRESENTATION_ID__AVIDAGP = 0;
 constexpr size_t REPRESENTATION_ID__SIGNALGP = 1;
+
+constexpr size_t TRAIT_ID__MOVE = 0;
+constexpr size_t TRAIT_ID__DONE = 1;
+constexpr size_t TRAIT_ID__PLAYER_ID = 2;
+
+constexpr size_t RUN_ID__EXP = 0;
+constexpr size_t RUN_ID__ANALYSIS = 1;
 
 class LineageExp {
 public:
@@ -75,8 +94,9 @@ public:
   };
 
   struct TestcaseInput {
-    emp::Othello game;
-    size_t playerID;
+    emp::Othello game;  ///< Othello game board.
+    size_t playerID;    ///< From what player is the testcase move made?
+    size_t round;       ///< What round is this testcase?
 
     TestcaseInput(size_t board_width, size_t pID=0) : game(board_width), playerID(pID) { ; }
     TestcaseInput(const TestcaseInput &) = default;
@@ -84,51 +104,66 @@ public:
   };
 
   struct TestcaseOutput {
-    size_t expert_move;
-    emp::BitVector move_validity;
+    size_t expert_move;             ///< What move did the expert make on the associated testcase?
+    emp::BitVector move_validity;   ///< BoardSize length bitvector describing what moves are valid on the associated testcase?
   };
 
   // More aliases
   using SGP__world_t = emp::World<SignalGPAgent>;
   using AGP__world_t = emp::World<AvidaGPAgent>;
 
-  using testcase_t = std::pair<TestcaseInput,TestcaseOutput>;
-
 protected:
   // == Configurable experiment parameters ==
   // General parameters
+  size_t RUN_MODE;
   int RANDOM_SEED;
   size_t POP_SIZE;
   size_t GENERATIONS;
   size_t EVAL_TIME;
   size_t REPRESENTATION;
-
+  std::string TEST_CASE_FILE;
+  std::string ANCESTOR_FPATH;
+  // Selection Group parameters
+  size_t SELECTION_METHOD;
   size_t TOURNAMENT_SIZE;
-
-  size_t BOARD_WIDTH;
-
+  // Othello Group parameters
+  size_t OTHELLO_BOARD_WIDTH;
+  size_t OTHELLO_HW_BOARDS;
+  // SignalGP Hardware Group parameters
+  size_t SGP_HW_MAX_CORES;
+  size_t SGP_HW_MAX_CALL_DEPTH;
+  double SGP_HW_MIN_BIND_THRESH;
+  // SignalGP Mutation Group parameters
+  int SGP_PROG_MAX_ARG_VAL;
+  double SGP_PER_BIT__TAG_BFLIP_RATE;
+  double SGP_PER_INST__SUB_RATE;
+  // Data Collection parameters
+  size_t SYSTEMATICS_INTERVAL;
+  size_t FITNESS_INTERVAL;
   size_t POP_SNAPSHOT_INTERVAL;
+  std::string DATA_DIRECTORY;
 
   // Experiment variables.
   emp::Ptr<emp::Random> random;
 
-  // QUESTION: Do we want to also have a Testcase input struct? (like our test case output struct)
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
+  using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
 
-  emp::Ptr<OthelloHardware> othello_dreamware;
+  emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
   // SignalGP-specifics.
-  emp::Ptr<SGP__world_t> sgp_world;
-  emp::Ptr<SGP__inst_lib_t> sgp_inst_lib;
-  emp::Ptr<SGP__event_lib_t> sgp_event_lib;
-  emp::Ptr<SGP__hardware_t> sgp_eval_hw;
+  emp::Ptr<SGP__world_t> sgp_world;         ///< World for evolving SignalGP agents.
+  emp::Ptr<SGP__inst_lib_t> sgp_inst_lib;   ///< SignalGP instruction library.
+  emp::Ptr<SGP__event_lib_t> sgp_event_lib; ///< SignalGP event library.
+  emp::Ptr<SGP__hardware_t> sgp_eval_hw;    ///< Hardware used to evaluate SignalGP programs during evolution/analysis.
 
   // AvidaGP-specifics.
-  emp::Ptr<AGP__world_t> agp_world;
+  emp::Ptr<AGP__world_t> agp_world;       ///< World for evolving AvidaGP agents.
   // TODO (@steven)
 
-  // Signals!
   // --- Experiment signals ---
+  // - DoBeginRun: this is where you'll setup systematics, fitness file, etc. with the world.
+  emp::Signal<void(void)> do_begin_run_setup_sig;
   // - DoEvaluation: evaluate e'rybody!
   emp::Signal<void(void)> do_evaluation_sig;
   // - DoSelection: Do selection.
@@ -204,63 +239,95 @@ protected:
     return options[random->GetUInt(0, options.size())];
   }
 
-  /// NOTE: at the moment, the last thing in game_board is used to indicate playerID
-  /// TODO: clean up testcase set.
-  testcase_t GenerateTestcase(std::vector<std::string> game_board, std::string expert_move) {
-    TestcaseInput input(BOARD_WIDTH);
+  /// From vector of strings pulled from a single line of a testcases file, generate a single
+  /// test case.
+  /// Expected line contents: game board positions, player ID, expert move, round
+  test_case_t GenerateTestcase(emp::vector<std::string> & test_case_strings) {
+    // Build test case input.
+    TestcaseInput input(OTHELLO_BOARD_WIDTH);
     emp::Othello & game = input.game;
-    emp_assert(game_board.size() == (game.GetBoardSize() + 1));
-    size_t playerID = std::atoi(game_board.back().c_str());
-    game_board.resize(game_board.size() - 1);
-    // Fill out game board.
-    for (size_t i = 0; i < game_board.size(); ++i) {
-      int board_space = std::atoi(game_board[i].c_str());
+    // test_case_strings expectation: game_board_positions, round, playerID, expert_move
+    emp_assert(test_case_strings.size() == (game.GetBoardSize() + 3));
+
+    // Get the playerID.
+    size_t playerID = std::atoi(test_case_strings.back().c_str());
+    test_case_strings.resize(test_case_strings.size() - 1);
+    // Get the expert move.
+    size_t expert_move = std::atoi(test_case_strings.back().c_str());
+    test_case_strings.resize(test_case_strings.size() - 1);
+    // Get the round.
+    size_t rnd = std::atoi(test_case_strings.back().c_str());
+    test_case_strings.resize(test_case_strings.size() - 1);
+
+    for (size_t i = 0; i < test_case_strings.size(); ++i) {
+      int board_space = std::atoi(test_case_strings[i].c_str());
       switch (board_space) {
-        case emp::Othello::DarkPlayerID():
+        case TESTCASE_FILE__DARK_ID:
           game.SetPos(i, emp::Othello::DarkDisk());
           break;
-        case emp::Othello::LightPlayerID():
+        case TESTCASE_FILE__LIGHT_ID:
           game.SetPos(i, emp::Othello::LightDisk());
           break;
-        default:
+        case TESTCASE_FILE__OPEN_ID:
           game.SetPos(i, emp::Othello::OpenSpace());
           break;
+        default:
+          std::cout << "Unrecognized board tile! Exiting..." << std::endl;
+          exit(-1);
       }
     }
+    input.round = rnd;
+    input.playerID = playerID;
+
     // Fill out testcase output.
     TestcaseOutput output;
-    output.expert_move = std::atoi(expert_move.c_str());
+    output.expert_move = expert_move;
     emp::vector<size_t> valid_moves = game.GetMoveOptions(playerID);
     output.move_validity.Resize(game.GetBoardSize());   // Resize bit vector to match board size.
     output.move_validity.Clear();                       // Set bits to 0.
     for (size_t i = 0; i < valid_moves.size(); ++i) {
       output.move_validity.Set(valid_moves[i], true);
     }
-    return std::make_pair(input, output);
+    return test_case_t(input, output);
   }
 
 public:
   LineageExp(const LineageConfig & config)
+    : testcases()
   {
+    RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
     POP_SIZE = config.POP_SIZE();
     GENERATIONS = config.GENERATIONS();
     EVAL_TIME = config.EVAL_TIME();
     REPRESENTATION = config.REPRESENTATION();
-    POP_SNAPSHOT_INTERVAL = 100;
-    TOURNAMENT_SIZE = 4;
-    BOARD_WIDTH = 8;
+    TEST_CASE_FILE = config.TEST_CASE_FILE();
+    ANCESTOR_FPATH = config.ANCESTOR_FPATH();
+    SELECTION_METHOD = config.SELECTION_METHOD();
+    TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
+    OTHELLO_BOARD_WIDTH = config.OTHELLO_BOARD_WIDTH();
+    OTHELLO_HW_BOARDS = config.OTHELLO_HW_BOARDS();
+    SGP_HW_MAX_CORES = config.SGP_HW_MAX_CORES();
+    SGP_HW_MAX_CALL_DEPTH = config.SGP_HW_MAX_CALL_DEPTH();
+    SGP_HW_MIN_BIND_THRESH = config.SGP_HW_MIN_BIND_THRESH();
+    SGP_PROG_MAX_ARG_VAL = config.SGP_PROG_MAX_ARG_VAL();
+    SGP_PER_BIT__TAG_BFLIP_RATE = config.SGP_PER_BIT__TAG_BFLIP_RATE();
+    SGP_PER_INST__SUB_RATE = config.SGP_PER_INST__SUB_RATE();
+    SYSTEMATICS_INTERVAL = config.SYSTEMATICS_INTERVAL();
+    FITNESS_INTERVAL = config.FITNESS_INTERVAL();
+    POP_SNAPSHOT_INTERVAL = config.POP_SNAPSHOT_INTERVAL();
+    DATA_DIRECTORY = config.DATA_DIRECTORY();
 
-    // Setup output directory.
-    // TODO
     // Make a random number generator.
     random = emp::NewPtr<emp::Random>(RANDOM_SEED);
 
     // Load test cases.
-    // TODO
+    testcases.RegisterTestcaseReader([this](emp::vector<std::string> & strs) { return this->GenerateTestcase(strs); });
+    testcases.LoadTestcases(TEST_CASE_FILE);
+    // TODO: test the case loader...
 
     // Configure the dreamware!
-    othello_dreamware = emp::NewPtr<OthelloHardware>(BOARD_WIDTH, 1);
+    othello_dreamware = emp::NewPtr<OthelloHardware>(OTHELLO_BOARD_WIDTH, 1);
 
     // Make the world(s)!
     // - SGP World -
@@ -273,6 +340,12 @@ public:
     // TODO (@steven): agp inst lib.
 
     // TODO: setup data-recording file.
+    if (RUN_MODE == RUN_ID__EXP) {
+      // Make data directory.
+      mkdir(DATA_DIRECTORY.c_str(), ACCESSPERMS);
+      if (DATA_DIRECTORY.back() != '/') DATA_DIRECTORY += '/';
+    }
+
 
     // Config experiment based on representation type.
     switch (REPRESENTATION) {
@@ -289,13 +362,21 @@ public:
   }
 
   ~LineageExp() {
-    // TODO
+    random.Delete();
+    othello_dreamware.Delete();
+    sgp_world.Delete();
+    sgp_inst_lib.Delete();
+    sgp_event_lib.Delete();
+    sgp_eval_hw.Delete();
+    agp_world.Delete();
+    // TODO: clean up whatever Avida-specific dynamically allocated memory we end up using.
   }
 
   void ConfigSGP();
   void ConfigAGP();
 
   void Run() {
+    do_begin_run_setup_sig.Trigger();
     for (size_t ud = 0; ud < GENERATIONS; ++ud) {
       RunStep();
       if (ud % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(ud);
@@ -309,13 +390,23 @@ public:
     do_mutation_sig.Trigger();
   }
 
+  // Mutation functions
+  size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd); // TODO
+  size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);  // TODO
+
+  // Population snapshot functions
+  void SGP_Snapshot_SingleFile(size_t update); // TODO
+
+  // SignalGP utility functions.
+  void SGP__ResetHW(const SGP__memory_t & main_in_mem=SGP__memory_t());
+
   // -- AvidaGP Instructions --
   // TODO (@steven)
 
   // -- SignalGP Instructions --
   // TODO: actual instruction implementations
   // Fork
-  void SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  static void SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // BoardWidth
   void SGP_Inst_GetBoardWidth(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // EndTurn
@@ -358,8 +449,15 @@ public:
   void SGP_Inst_ResetBoard_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // IsOver
   void SGP_Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-
 };
+
+void LineageExp::SGP__ResetHW(const SGP__memory_t & main_in_mem) {
+  sgp_eval_hw->ResetHardware();
+  sgp_eval_hw->SetTrait(TRAIT_ID__MOVE, -1);
+  sgp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
+  sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
+  sgp_eval_hw->SpawnCore(0, main_in_mem, true);
+}
 
 void LineageExp::ConfigSGP() {
   // Configure the world.
@@ -367,28 +465,159 @@ void LineageExp::ConfigSGP() {
   sgp_world->SetWellMixed(true);
 
   // Configure the instruction set.
-  // TODO
+  // - Default instruction set.
+  sgp_inst_lib->AddInst("Inc", SGP__hardware_t::Inst_Inc, 1, "Increment value in local memory Arg1");
+  sgp_inst_lib->AddInst("Dec", SGP__hardware_t::Inst_Dec, 1, "Decrement value in local memory Arg1");
+  sgp_inst_lib->AddInst("Not", SGP__hardware_t::Inst_Not, 1, "Logically toggle value in local memory Arg1");
+  sgp_inst_lib->AddInst("Add", SGP__hardware_t::Inst_Add, 3, "Local memory: Arg3 = Arg1 + Arg2");
+  sgp_inst_lib->AddInst("Sub", SGP__hardware_t::Inst_Sub, 3, "Local memory: Arg3 = Arg1 - Arg2");
+  sgp_inst_lib->AddInst("Mult", SGP__hardware_t::Inst_Mult, 3, "Local memory: Arg3 = Arg1 * Arg2");
+  sgp_inst_lib->AddInst("Div", SGP__hardware_t::Inst_Div, 3, "Local memory: Arg3 = Arg1 / Arg2");
+  sgp_inst_lib->AddInst("Mod", SGP__hardware_t::Inst_Mod, 3, "Local memory: Arg3 = Arg1 % Arg2");
+  sgp_inst_lib->AddInst("TestEqu", SGP__hardware_t::Inst_TestEqu, 3, "Local memory: Arg3 = (Arg1 == Arg2)");
+  sgp_inst_lib->AddInst("TestNEqu", SGP__hardware_t::Inst_TestNEqu, 3, "Local memory: Arg3 = (Arg1 != Arg2)");
+  sgp_inst_lib->AddInst("TestLess", SGP__hardware_t::Inst_TestLess, 3, "Local memory: Arg3 = (Arg1 < Arg2)");
+  sgp_inst_lib->AddInst("If", SGP__hardware_t::Inst_If, 1, "Local memory: If Arg1 != 0, proceed; else, skip block.", emp::ScopeType::BASIC, 0, {"block_def"});
+  sgp_inst_lib->AddInst("While", SGP__hardware_t::Inst_While, 1, "Local memory: If Arg1 != 0, loop; else, skip block.", emp::ScopeType::BASIC, 0, {"block_def"});
+  sgp_inst_lib->AddInst("Countdown", SGP__hardware_t::Inst_Countdown, 1, "Local memory: Countdown Arg1 to zero.", emp::ScopeType::BASIC, 0, {"block_def"});
+  sgp_inst_lib->AddInst("Close", SGP__hardware_t::Inst_Close, 0, "Close current block if there is a block to close.", emp::ScopeType::BASIC, 0, {"block_close"});
+  sgp_inst_lib->AddInst("Break", SGP__hardware_t::Inst_Break, 0, "Break out of current block.");
+  sgp_inst_lib->AddInst("Call", SGP__hardware_t::Inst_Call, 0, "Call function that best matches call affinity.", emp::ScopeType::BASIC, 0, {"affinity"});
+  sgp_inst_lib->AddInst("Return", SGP__hardware_t::Inst_Return, 0, "Return from current function if possible.");
+  sgp_inst_lib->AddInst("SetMem", SGP__hardware_t::Inst_SetMem, 2, "Local memory: Arg1 = numerical value of Arg2");
+  sgp_inst_lib->AddInst("CopyMem", SGP__hardware_t::Inst_CopyMem, 2, "Local memory: Arg1 = Arg2");
+  sgp_inst_lib->AddInst("SwapMem", SGP__hardware_t::Inst_SwapMem, 2, "Local memory: Swap values of Arg1 and Arg2.");
+  sgp_inst_lib->AddInst("Input", SGP__hardware_t::Inst_Input, 2, "Input memory Arg1 => Local memory Arg2.");
+  sgp_inst_lib->AddInst("Output", SGP__hardware_t::Inst_Output, 2, "Local memory Arg1 => Output memory Arg2.");
+  sgp_inst_lib->AddInst("Commit", SGP__hardware_t::Inst_Commit, 2, "Local memory Arg1 => Shared memory Arg2.");
+  sgp_inst_lib->AddInst("Pull", SGP__hardware_t::Inst_Pull, 2, "Shared memory Arg1 => Shared memory Arg2.");
+  sgp_inst_lib->AddInst("Nop", SGP__hardware_t::Inst_Nop, 0, "No operation.");
+  // - Non-default instruction set.
+  // TODO (@amlalejini): Fill out instruction descriptions.
+  sgp_inst_lib->AddInst("Fork", SGP__Inst_Fork, 0, "...");
+  sgp_inst_lib->AddInst("GetBoardWidth",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardWidth(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("EndTurn",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_EndTurn(hw, inst); },
+                        0, "...");
+  sgp_inst_lib->AddInst("SetMoveXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveXY(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("SetMoveID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveID(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("GetMoveXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveXY(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("GetMoveID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveID(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("IsValidXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidXY(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("IsValidID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidID(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("AdjacentXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentXY(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("AdjacentID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentID(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("ValidMoveCnt-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidMoveCnt_HW(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("ValidOppMoveCnt-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidOppMoveCnt_HW(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("GetBoardValueXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("GetBoardValueID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("PlaceDiskXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("PlaceDiskID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("PlaceOppDiskXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("PlaceOppDiskID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("FlipCntXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("FlipCntID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("OppFlipCntXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("OppFlipCntID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("FrontierCntXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("FrontierCntID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("ResetBoard-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ResetBoard_HW(hw, inst); },
+                        0, "...");
+  sgp_inst_lib->AddInst("IsOver-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_IsOver_HW(hw, inst); },
+                        1, "...");
 
   // Setup triggers!
+  // Configure initial run setup
+  // - QUESTION: Do we want ancestors to be NOP ancestors or randomly generated programs?
+  do_begin_run_setup_sig.AddAction([this]() {
+    // Setup systematics/fitness tracking.
+    auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
+    sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
+    fit_file.SetTimingRepeat(FITNESS_INTERVAL);
+    // 1) Load/configure ancestor, fill out population.
+    // TODO
+  });
+
   // - Configure evaluation
   do_evaluation_sig.AddAction([this]() {
     for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
-      // ...TODO...
+      // Evaluate agent given by id.
+      SignalGPAgent & our_hero = sgp_world->GetOrg(id);
+      our_hero.scores_by_testcase.resize(testcases.GetSize(), 0);
+      sgp_eval_hw->SetProgram(our_hero.GetGenome());
+      // Evaluate agent on all test cases.
+      for (size_t testID = 0; testID < testcases.GetSize(); ++testID) {
+        // TODO: evaluate agent on test case.
+        // size_t move = EvalMove__GP();
+      }
     }
   });
+
   // - Configure selection
   do_selection_sig.AddAction([this]() {
     emp::EliteSelect(*sgp_world, 1, 1);
     emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
   });
+
   // - Configure world upate.
   do_world_update_sig.AddAction([this]() { sgp_world->Update(); });
 
   // do_mutation
-
-  // do_analysis --> TODO
+  do_mutation_sig.AddAction([this]() { sgp_world->DoMutations(1); });
 
   // do_pop_snapshot
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
+
+  // do_analysis --> TODO
 }
 
 void LineageExp::ConfigAGP() {
