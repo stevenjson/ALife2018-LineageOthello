@@ -108,8 +108,9 @@ def ConvertToBoards(rawTS, out_file):
     game = Othello(out_file)
 
     for i in range(len(move_list)):
-        game.DoMove(move_list[i], player_list[i])
         game.WriteBoard(move_list[i], player_list[i], i+1)
+        game.DoMove(move_list[i], player_list[i])
+        
         
     game.CloseOutFile()
 
