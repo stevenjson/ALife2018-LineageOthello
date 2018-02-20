@@ -30,6 +30,10 @@ public:
 
     Testcase(const input_t & _in, const output_t & _out) : input(_in), output(_out), id(0) { ; }
     Testcase(const Testcase & other) : input(other.input), output(other.output), id(other.id) { ; }
+
+    input_t & GetInput() { return input; }
+    output_t & GetOutput() { return output; }
+    
   };
 
   using test_case_t = Testcase;
@@ -51,6 +55,11 @@ public:
 
     emp::vector<test_case_t> & GetTestcases() {
         return test_cases;
+    }
+
+    test_case_t & operator[](size_t id) {
+      emp_assert(id < test_cases.size());
+      return test_cases[id];
     }
 
     emp::vector<size_t> GetSubset(int trials, emp::Random * random) {

@@ -243,21 +243,24 @@ protected:
   /// test case.
   /// Expected line contents: game board positions, player ID, expert move, round
   test_case_t GenerateTestcase(emp::vector<std::string> & test_case_strings) {
+    std::cout << "Generate test case!" << std::endl;
     // Build test case input.
     TestcaseInput input(OTHELLO_BOARD_WIDTH);
     emp::Othello & game = input.game;
     // test_case_strings expectation: game_board_positions, round, playerID, expert_move
     emp_assert(test_case_strings.size() == (game.GetBoardSize() + 3));
 
-    // Get the playerID.
-    size_t playerID = std::atoi(test_case_strings.back().c_str());
-    playerID = (playerID == TESTCASE_FILE__DARK_ID) ? emp::Othello::DarkPlayerID() : emp::Othello::LightPlayerID();
+    // Get the round.
+    size_t rnd = std::atoi(test_case_strings.back().c_str());
     test_case_strings.resize(test_case_strings.size() - 1);
+
     // Get the expert move.
     size_t expert_move = std::atoi(test_case_strings.back().c_str());
     test_case_strings.resize(test_case_strings.size() - 1);
-    // Get the round.
-    size_t rnd = std::atoi(test_case_strings.back().c_str());
+
+    // Get the playerID.
+    int id = std::atoi(test_case_strings.back().c_str());
+    size_t playerID = (id == TESTCASE_FILE__DARK_ID) ? emp::Othello::DarkPlayerID() : emp::Othello::LightPlayerID();
     test_case_strings.resize(test_case_strings.size() - 1);
 
     for (size_t i = 0; i < test_case_strings.size(); ++i) {
@@ -325,7 +328,18 @@ public:
     // Load test cases.
     testcases.RegisterTestcaseReader([this](emp::vector<std::string> & strs) { return this->GenerateTestcase(strs); });
     testcases.LoadTestcases(TEST_CASE_FILE);
-    // TODO: test the case loader...
+
+    // for (size_t i = 0; i < testcases.GetSize(); ++i) {
+    //   std::cout << "============= Test case: " << i << " =============" << std::endl;
+    //   std::cout << "ID: " << testcases[i].id << std::endl;
+    //   std::cout << "Input" << std::endl;
+    //   // Board
+    //   testcases[i].GetInput().game.Print();
+    //   std::cout << "Round: " << testcases[i].GetInput().round << std::endl;
+    //   std::cout << "PlayerID: " << testcases[i].GetInput().playerID << std::endl;
+    //   std::cout << "Output" << std::endl;
+    //   std::cout << "Expert move: " << testcases[i].GetOutput().expert_move << std::endl;
+    // }
 
     // Configure the dreamware!
     othello_dreamware = emp::NewPtr<OthelloHardware>(OTHELLO_BOARD_WIDTH, 1);
@@ -340,13 +354,11 @@ public:
     sgp_event_lib = emp::NewPtr<SGP__event_lib_t>();
     // TODO (@steven): agp inst lib.
 
-    // TODO: setup data-recording file.
     if (RUN_MODE == RUN_ID__EXP) {
       // Make data directory.
       mkdir(DATA_DIRECTORY.c_str(), ACCESSPERMS);
       if (DATA_DIRECTORY.back() != '/') DATA_DIRECTORY += '/';
     }
-
 
     // Config experiment based on representation type.
     switch (REPRESENTATION) {
@@ -360,6 +372,7 @@ public:
         std::cout << "Unrecognized representation configuration setting (" << REPRESENTATION << "). Exiting..." << std::endl;
         exit(-1);
     }
+    exit(-1);
   }
 
   ~LineageExp() {
