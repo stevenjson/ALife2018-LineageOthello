@@ -5,6 +5,7 @@
 
 EMP_BUILD_CONFIG( LineageConfig,
   GROUP(DEFAULT_GROUP, "General Settings"),
+  VALUE(RUN_MODE, size_t, 0, "What mode are we running in? 0: Native experiment, ..."),
   VALUE(RANDOM_SEED, int, -1, "Random number seed (negative value for based on time)"),
   VALUE(POP_SIZE, size_t, 1000, "Total population size"),
   VALUE(GENERATIONS, size_t, 100, "How many generations should we run evolution?"),

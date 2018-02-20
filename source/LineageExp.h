@@ -1,6 +1,14 @@
 #ifndef LINEAGE_EXP_H
 #define LINEAGE_EXP_H
 
+#include <iostream>
+#include <string>
+#include <utility>
+#include <fstream>
+#include <sys/stat.h>
+#include <algorithm>
+#include <functional>
+
 #include "base/Ptr.h"
 #include "base/vector.h"
 #include "control/Signal.h"
@@ -18,6 +26,10 @@
 #include "OthelloHW.h"
 #include "lineage-config.h"
 
+constexpr int TESTCASE_FILE__DARK_ID = 1;
+constexpr int TESTCASE_FILE__LIGHT_ID = -1;
+constexpr int TESTCASE_FILE__OPEN_ID = 0;
+
 constexpr size_t SGP__TAG_WIDTH = 16;
 
 constexpr size_t REPRESENTATION_ID__AVIDAGP = 0;
@@ -26,6 +38,9 @@ constexpr size_t REPRESENTATION_ID__SIGNALGP = 1;
 constexpr size_t TRAIT_ID__MOVE = 0;
 constexpr size_t TRAIT_ID__DONE = 1;
 constexpr size_t TRAIT_ID__PLAYER_ID = 2;
+
+constexpr size_t RUN_ID__EXP = 0;
+constexpr size_t RUN_ID__ANALYSIS = 1;
 
 class LineageExp {
 public:
@@ -100,6 +115,7 @@ public:
 protected:
   // == Configurable experiment parameters ==
   // General parameters
+  size_t RUN_MODE;
   int RANDOM_SEED;
   size_t POP_SIZE;
   size_t GENERATIONS;
@@ -225,38 +241,39 @@ protected:
 
   /// From vector of strings pulled from a single line of a testcases file, generate a single
   /// test case.
-  /// Expected line contents: game board positions, round, player ID, expert move
+  /// Expected line contents: game board positions, player ID, expert move, round
   test_case_t GenerateTestcase(emp::vector<std::string> & test_case_strings) {
     // Build test case input.
     TestcaseInput input(OTHELLO_BOARD_WIDTH);
     emp::Othello & game = input.game;
     // test_case_strings expectation: game_board_positions, round, playerID, expert_move
     emp_assert(test_case_strings.size() == (game.GetBoardSize() + 3));
-    // Get the round.
-    size_t rnd = std::atoi(test_case_strings.back().c_str());
-    test_case_strings.resize(test_case_strings.size() - 1);
+
     // Get the playerID.
     size_t playerID = std::atoi(test_case_strings.back().c_str());
     test_case_strings.resize(test_case_strings.size() - 1);
     // Get the expert move.
     size_t expert_move = std::atoi(test_case_strings.back().c_str());
     test_case_strings.resize(test_case_strings.size() - 1);
+    // Get the round.
+    size_t rnd = std::atoi(test_case_strings.back().c_str());
+    test_case_strings.resize(test_case_strings.size() - 1);
 
-    // Fill out game board. TODO: make this match whatever encoding scheme Steven ends up using.
     for (size_t i = 0; i < test_case_strings.size(); ++i) {
       int board_space = std::atoi(test_case_strings[i].c_str());
       switch (board_space) {
-        case 1://emp::Othello::DarkPlayerID():
-          // game.SetPos(i, emp::Othello::DarkDisk());
-          game.SetPos(i, game.GetDiskType(playerID));
+        case TESTCASE_FILE__DARK_ID:
+          game.SetPos(i, emp::Othello::DarkDisk());
           break;
-        case -1://emp::Othello::LightPlayerID():
-          // game.SetPos(i, emp::Othello::LightDisk());
-          game.SetPos(i, game.GetDiskType(game.GetOpponentID(playerID)));
+        case TESTCASE_FILE__LIGHT_ID:
+          game.SetPos(i, emp::Othello::LightDisk());
           break;
-        default:
+        case TESTCASE_FILE__OPEN_ID:
           game.SetPos(i, emp::Othello::OpenSpace());
           break;
+        default:
+          std::cout << "Unrecognized board tile! Exiting..." << std::endl;
+          exit(-1);
       }
     }
     input.round = rnd;
@@ -278,6 +295,7 @@ public:
   LineageExp(const LineageConfig & config)
     : testcases()
   {
+    RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
     POP_SIZE = config.POP_SIZE();
     GENERATIONS = config.GENERATIONS();
@@ -322,6 +340,12 @@ public:
     // TODO (@steven): agp inst lib.
 
     // TODO: setup data-recording file.
+    if (RUN_MODE == RUN_ID__EXP) {
+      // Make data directory.
+      mkdir(DATA_DIRECTORY.c_str(), ACCESSPERMS);
+      if (DATA_DIRECTORY.back() != '/') DATA_DIRECTORY += '/';
+    }
+
 
     // Config experiment based on representation type.
     switch (REPRESENTATION) {
@@ -554,8 +578,13 @@ void LineageExp::ConfigSGP() {
   // Configure initial run setup
   // - QUESTION: Do we want ancestors to be NOP ancestors or randomly generated programs?
   do_begin_run_setup_sig.AddAction([this]() {
-    // TODO
+    // Setup systematics/fitness tracking.
+    auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
+    sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
+    fit_file.SetTimingRepeat(FITNESS_INTERVAL);
     // 1) Load/configure ancestor, fill out population.
+    // TODO
   });
 
   // - Configure evaluation
