@@ -3,9 +3,12 @@
 #include <iostream>
 
 #include "base/vector.h"
+
 #include "config/command_line.h"
 #include "config/ArgManager.h"
-#include "lineage-config.h"
+
+#include "../lineage-config.h"
+#include "../LineageExp.h"
 
 int main(int argc, char* argv[])
 {
@@ -14,7 +17,8 @@ int main(int argc, char* argv[])
   auto args = emp::cl::ArgManager(argc, argv);
   LineageConfig config;
   config.Read(config_fname);
-  if (args.ProcessConfigOptions(config, std::cout, config_fname, "games-config.h") == false)
+
+  if (args.ProcessConfigOptions(config, std::cout, config_fname, "../lineage-config.h") == false)
     exit(0);
   if (args.TestUnknown() == false)
     exit(0);
@@ -25,6 +29,9 @@ int main(int argc, char* argv[])
   config.Write(std::cout);
   std::cout << "==============================\n"
             << std::endl;
+
+  // Prepare output directory.
+  // mkdir(config.DATA_DIRECTORY().c_str(), ACCESSPERMS);
 
   //GamesExp e(config);
   //e.Run();
