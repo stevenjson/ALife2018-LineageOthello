@@ -51,6 +51,15 @@ public:
     }
   }
 
+  void ResetActive() {
+    dreams[active_dream].Reset();
+  }
+
+  void ResetActive(const emp::Othello & other) {
+    dreams[active_dream].Reset();
+    dreams[active_dream].SetBoard(other.GetBoard());
+  }
+
 };
 
 

@@ -42,6 +42,11 @@ constexpr size_t TRAIT_ID__PLAYER_ID = 2;
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
 
+constexpr int AGENT_VIEW__ILLEGAL_ID = -1;
+constexpr int AGENT_VIEW__OPEN_ID = 0;
+constexpr int AGENT_VIEW__SELF_ID = 1;
+constexpr int AGENT_VIEW__OPP_ID = 2;
+
 class LineageExp {
 public:
   // SignalGP-specific type aliases:
@@ -148,6 +153,7 @@ protected:
 
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
   using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
+  size_t cur_testcase;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
@@ -297,7 +303,7 @@ protected:
 
 public:
   LineageExp(const LineageConfig & config)
-    : testcases()
+    : testcases(), cur_testcase(0)
   {
     RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
@@ -420,7 +426,7 @@ public:
   // -- SignalGP Instructions --
   // TODO: actual instruction implementations
   // Fork
-  static void SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // BoardWidth
   void SGP_Inst_GetBoardWidth(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // EndTurn
@@ -431,38 +437,37 @@ public:
   // GetMoveXY
   void SGP__Inst_GetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_GetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // IsValidXY
-  void SGP__Inst_IsValidXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP__Inst_IsValidID(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // AdjacentXY
   void SGP__Inst_AdjacentXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_AdjacentID(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // IsValidXY
+  void SGP__Inst_IsValidXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_IsValidID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // ValidMovesCnt
-  void SGP_Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // ValidOppMovesCnt
-  void SGP_Inst_ValidOppMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_ValidOppMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // GetBoardValue
-  void SGP_Inst_GetBoardValueXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP_Inst_GetBoardValueID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_GetBoardValueXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_GetBoardValueID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // PlaceXY
-  void SGP_Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP_Inst_PlaceDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_PlaceDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // PlaceOppXY
-  void SGP_Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP_Inst_PlaceOppDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_PlaceOppDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // FlipCntXY
-  void SGP_Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP_Inst_FlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_FlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // OppFlipCntXY
-  void SGP_Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP_Inst_OppFlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // FrontierCntXY
-  void SGP_Inst_FrontierCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  void SGP_Inst_FrontierCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_OppFlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // FrontierCnt
+  void SGP__Inst_FrontierCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // ResetBoard
-  void SGP_Inst_ResetBoard_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_ResetBoard_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // IsOver
-  void SGP_Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
 };
 
 void LineageExp::SGP__ResetHW(const SGP__memory_t & main_in_mem) {
@@ -471,6 +476,274 @@ void LineageExp::SGP__ResetHW(const SGP__memory_t & main_in_mem) {
   sgp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
   sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
   sgp_eval_hw->SpawnCore(0, main_in_mem, true);
+}
+
+// --- SGP instruction implementations ---
+// SGP__Inst_Fork
+void LineageExp::SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  hw.SpawnCore(inst.affinity, hw.GetMinBindThresh(), state.local_mem);
+}
+// SGP_Inst_GetBoardWidth
+void LineageExp::SGP_Inst_GetBoardWidth(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  state.SetLocal(inst.args[0], OTHELLO_BOARD_WIDTH);
+}
+// SGP_Inst_EndTurn
+void LineageExp::SGP_Inst_EndTurn(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  hw.SetTrait(TRAIT_ID__DONE, 1);
+}
+// SGP__Inst_SetMoveXY
+void LineageExp::SGP__Inst_SetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move = dreamboard.GetPosID(move_x, move_y);
+  hw.SetTrait(TRAIT_ID__MOVE, move);
+}
+// SGP__Inst_SetMoveID
+void LineageExp::SGP__Inst_SetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  hw.SetTrait(TRAIT_ID__MOVE, move_id);
+}
+// SGP__Inst_GetMoveXY
+void LineageExp::SGP__Inst_GetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
+  const size_t move_x = dreamboard.GetPosX(move_id);
+  const size_t move_y = dreamboard.GetPosY(move_id);
+  state.SetLocal(inst.args[0], move_x);
+  state.SetLocal(inst.args[1], move_y);
+}
+// SGP__Inst_GetMoveID
+void LineageExp::SGP__Inst_GetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
+  state.SetLocal(inst.args[0], move_id);
+}
+// SGP__Inst_IsValidXY
+void LineageExp::SGP__Inst_IsValidXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t move_x = state.GetLocal(inst.args[0]);
+  const size_t move_y = state.GetLocal(inst.args[1]);
+  const int valid = (int)dreamboard.IsMoveValid(playerID, move_x, move_y);
+  state.SetLocal(inst.args[2], valid);
+}
+// SGP__Inst_IsValidID_HW
+void LineageExp::SGP__Inst_IsValidID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t move_id = state.GetLocal(inst.args[0]);
+  const int valid = (int)dreamboard.IsMoveValid(playerID, move_id);
+  state.SetLocal(inst.args[1], valid);
+}
+// SGP__Inst_AdjacentXY
+void LineageExp::SGP__Inst_AdjacentXY(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const size_t dir    = emp::Mod((int)state.GetLocal(inst.args[2]), 8);
+  const int nID = dreamboard.GetNeighbor(move_x, move_y, dir);
+  if (nID == -1) {
+    state.SetLocal(inst.args[0], AGENT_VIEW__ILLEGAL_ID);
+    state.SetLocal(inst.args[1], AGENT_VIEW__ILLEGAL_ID);
+  } else {
+    state.SetLocal(inst.args[0], dreamboard.GetPosX(nID));
+    state.SetLocal(inst.args[1], dreamboard.GetPosY(nID));
+  }
+}
+// SGP__Inst_AdjacentID
+void LineageExp::SGP__Inst_AdjacentID(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  const size_t dir     = emp::Mod((int)state.GetLocal(inst.args[2]), 8);
+  const int nID        = dreamboard.GetNeighbor(move_id, dir);
+  state.SetLocal(inst.args[0], nID);
+}
+// SGP_Inst_ValidMoveCnt_HW
+void LineageExp::SGP__Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  state.SetLocal(inst.args[0], dreamboard.GetMoveOptions(playerID).size());
+}
+// SGP_Inst_ValidOppMoveCnt_HW
+void LineageExp::SGP__Inst_ValidOppMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  state.SetLocal(inst.args[0], dreamboard.GetMoveOptions(oppID).size());
+}
+// SGP_Inst_GetBoardValueXY_HW
+void LineageExp::SGP__Inst_GetBoardValueXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = state.GetLocal(inst.args[0]);
+  const size_t move_y = state.GetLocal(inst.args[1]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // If inputs are garbage, let the caller know.
+  if (dreamboard.IsValidPos(move_x, move_y)) {
+    const size_t owner = dreamboard.GetPosOwner(move_x, move_y);
+    if (owner == playerID) { state.SetLocal(inst.args[2], AGENT_VIEW__SELF_ID); }
+    else if (owner == oppID) { state.SetLocal(inst.args[2], AGENT_VIEW__OPP_ID); }
+    else { state.SetLocal(inst.args[2], AGENT_VIEW__OPEN_ID); }
+  } else {
+    state.SetLocal(inst.args[2], AGENT_VIEW__ILLEGAL_ID);
+  }
+}
+// SGP_Inst_GetBoardValueID_HW
+void LineageExp::SGP__Inst_GetBoardValueID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = state.GetLocal(inst.args[0]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // If inputs are garbage, let the caller know.
+  if (dreamboard.IsValidPos(move_id)) {
+    const size_t owner = dreamboard.GetPosOwner(move_id);
+    if (owner == playerID) { state.SetLocal(inst.args[1], AGENT_VIEW__SELF_ID); }
+    else if (owner == oppID) { state.SetLocal(inst.args[1], AGENT_VIEW__OPP_ID); }
+    else { state.SetLocal(inst.args[1], AGENT_VIEW__OPEN_ID); }
+  } else {
+    state.SetLocal(inst.args[1], AGENT_VIEW__ILLEGAL_ID);
+  }
+}
+// SGP_Inst_PlaceDiskXY_HW
+void LineageExp::SGP__Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_x, move_y)) {
+    dreamboard.DoMove(playerID, move_x, move_y);
+    state.SetLocal(inst.args[2], 1);
+  } else {
+    state.SetLocal(inst.args[2], 0);
+  }
+}
+// SGP_Inst_PlaceDiskID_HW
+void LineageExp::SGP__Inst_PlaceDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = state.GetLocal(inst.args[0]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_id)) {
+    dreamboard.DoMove(playerID, move_id);
+    state.SetLocal(inst.args[1], 1);
+  } else {
+    state.SetLocal(inst.args[1], 0);
+  }
+}
+// SGP_Inst_PlaceOppDiskXY_HW
+void LineageExp::SGP__Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_x, move_y)) {
+    dreamboard.DoMove(oppID, move_x, move_y);
+    state.SetLocal(inst.args[2], 1);
+  } else {
+    state.SetLocal(inst.args[2], 0);
+  }
+}
+// SGP_Inst_PlaceOppDiskID_HW
+void LineageExp::SGP__Inst_PlaceOppDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = state.GetLocal(inst.args[0]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_id)) {
+    dreamboard.DoMove(oppID, move_id);
+    state.SetLocal(inst.args[1], 1);
+  } else {
+    state.SetLocal(inst.args[1], 0);
+  }
+}
+// SGP_Inst_FlipCntXY_HW
+void LineageExp::SGP__Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_id)) {
+    state.SetLocal(inst.args[2], dreamboard.GetFlipList(playerID, move_id).size());
+  } else {
+    state.SetLocal(inst.args[2], 0);
+  }
+}
+// SGP_Inst_FlipCntID_HW
+void LineageExp::SGP__Inst_FlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_id)) {
+    state.SetLocal(inst.args[1], dreamboard.GetFlipList(playerID, move_id).size());
+  } else {
+    state.SetLocal(inst.args[1], 0);
+  }
+}
+// SGP_Inst_OppFlipCntXY_HW
+void LineageExp::SGP__Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_id)) {
+    state.SetLocal(inst.args[2], dreamboard.GetFlipList(oppID, move_id).size());
+  } else {
+    state.SetLocal(inst.args[2], 0);
+  }
+}
+// SGP_Inst_OppFlipCntID_HW
+void LineageExp::SGP__Inst_OppFlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_id)) {
+    state.SetLocal(inst.args[1], dreamboard.GetFlipList(oppID, move_id).size());
+  } else {
+    state.SetLocal(inst.args[1], 0);
+  }
+}
+// SGP_Inst_FrontierCnt_HW
+void LineageExp::SGP__Inst_FrontierCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  state.SetLocal(inst.args[0], dreamboard.GetFrontierPosCnt(playerID));
+}
+// SGP_Inst_ResetBoard_HW
+void LineageExp::SGP__Inst_ResetBoard_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  othello_dreamware->ResetActive(testcases[cur_testcase].GetInput().game);
+}
+// SGP_Inst_IsOver_HW
+void LineageExp::SGP__Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  state.SetLocal(inst.args[0], (int)dreamboard.IsOver());
 }
 
 void LineageExp::ConfigSGP() {
@@ -508,85 +781,84 @@ void LineageExp::ConfigSGP() {
   sgp_inst_lib->AddInst("Nop", SGP__hardware_t::Inst_Nop, 0, "No operation.");
   // - Non-default instruction set.
   // TODO (@amlalejini): Fill out instruction descriptions.
-  // sgp_inst_lib->AddInst("Fork", SGP__Inst_Fork, 0, "...");
-  // sgp_inst_lib->AddInst("GetBoardWidth",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardWidth(hw, inst); },
-  //                       1, "...");
-  // sgp_inst_lib->AddInst("EndTurn",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_EndTurn(hw, inst); },
-  //                       0, "...");
-  // sgp_inst_lib->AddInst("SetMoveXY",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveXY(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("SetMoveID",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveID(hw, inst); },
-  //                       1, "...");
-  // sgp_inst_lib->AddInst("GetMoveXY",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveXY(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("GetMoveID",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveID(hw, inst); },
-  //                       1, "...");
-  // sgp_inst_lib->AddInst("IsValidXY",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidXY(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("IsValidID",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidID(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("AdjacentXY",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentXY(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("AdjacentID",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentID(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("ValidMoveCnt-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidMoveCnt_HW(hw, inst); },
-  //                       1, "...");
-  // sgp_inst_lib->AddInst("ValidOppMoveCnt-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ValidOppMoveCnt_HW(hw, inst); },
-  //                       1, "...");
-  // sgp_inst_lib->AddInst("GetBoardValueXY-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueXY_HW(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("GetBoardValueID-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardValueID_HW(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("PlaceDiskXY-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskXY_HW(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("PlaceDiskID-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceDiskID_HW(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("PlaceOppDiskXY-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskXY_HW(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("PlaceOppDiskID-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_PlaceOppDiskID_HW(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("FlipCntXY-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntXY_HW(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("FlipCntID-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FlipCntID_HW(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("OppFlipCntXY-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntXY_HW(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("OppFlipCntID-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_OppFlipCntID_HW(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("FrontierCntXY-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntXY_HW(hw, inst); },
-  //                       3, "...");
-  // sgp_inst_lib->AddInst("FrontierCntID-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_FrontierCntID_HW(hw, inst); },
-  //                       2, "...");
-  // sgp_inst_lib->AddInst("ResetBoard-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_ResetBoard_HW(hw, inst); },
-  //                       0, "...");
-  // sgp_inst_lib->AddInst("IsOver-HW",
-  //                       [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_IsOver_HW(hw, inst); },
-  //                       1, "...");
+  sgp_inst_lib->AddInst("Fork",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_Fork(hw, inst); },
+                        0, "...");
+  sgp_inst_lib->AddInst("GetBoardWidth",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_GetBoardWidth(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("EndTurn",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP_Inst_EndTurn(hw, inst); },
+                        0, "...");
+  sgp_inst_lib->AddInst("SetMoveXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveXY(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("SetMoveID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_SetMoveID(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("GetMoveXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveXY(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("GetMoveID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetMoveID(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("IsValidXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("IsValidID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("AdjacentXY",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentXY(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("AdjacentID",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentID(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("ValidMoveCnt-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_ValidMoveCnt_HW(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("ValidOppMoveCnt-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_ValidOppMoveCnt_HW(hw, inst); },
+                        1, "...");
+  sgp_inst_lib->AddInst("GetBoardValueXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetBoardValueXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("GetBoardValueID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_GetBoardValueID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("PlaceDiskXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_PlaceDiskXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("PlaceDiskID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_PlaceDiskID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("PlaceOppDiskXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_PlaceOppDiskXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("PlaceOppDiskID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_PlaceOppDiskID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("FlipCntXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_FlipCntXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("FlipCntID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_FlipCntID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("OppFlipCntXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_OppFlipCntXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("OppFlipCntID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_OppFlipCntID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("FrontierCnt-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_FrontierCnt_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("ResetBoard-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_ResetBoard_HW(hw, inst); },
+                        0, "...");
+  sgp_inst_lib->AddInst("IsOver-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsOver_HW(hw, inst); },
+                        1, "...");
 
   // Setup triggers!
   // Configure initial run setup
@@ -609,7 +881,7 @@ void LineageExp::ConfigSGP() {
       our_hero.scores_by_testcase.resize(testcases.GetSize(), 0);
       sgp_eval_hw->SetProgram(our_hero.GetGenome());
       // Evaluate agent on all test cases.
-      for (size_t testID = 0; testID < testcases.GetSize(); ++testID) {
+      for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
         // TODO: evaluate agent on test case.
         // size_t move = EvalMove__GP();
       }
