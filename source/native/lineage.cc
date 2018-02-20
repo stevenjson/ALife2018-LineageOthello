@@ -30,10 +30,6 @@ int main(int argc, char* argv[])
   std::cout << "==============================\n"
             << std::endl;
 
-  // TODO: SETUP output directory.
-  // Prepare output directory.
-  // mkdir(config.DATA_DIRECTORY().c_str(), ACCESSPERMS);
-
-  //GamesExp e(config);
-  //e.Run();
+  LineageExp e(config);
+  // e.Run();
 }
