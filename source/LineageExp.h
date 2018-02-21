@@ -16,6 +16,8 @@
 #include "games/Othello.h"
 #include "hardware/EventDrivenGP.h"
 #include "hardware/AvidaGP.h"
+#include "hardware/AvidaCPU_InstLib.h"
+#include "hardware/InstLib.h"
 #include "tools/BitVector.h"
 #include "tools/Random.h"
 #include "tools/random_utils.h"
@@ -57,6 +59,9 @@ public:
 
   // AvidaGP-specific type aliases:
   using AGP__hardware_t = emp::AvidaGP;
+  using AGP__program_t = AGP__hardware_t::genome_t;
+  using AGP__inst_t = AGP__hardware_t::inst_t;
+  using AGP__inst_lib_t = AGP__hardware_t::inst_lib_t;
 
   struct Agent {
     emp::vector<double> scores_by_testcase;
@@ -88,9 +93,23 @@ public:
 
   struct AvidaGPAgent : Agent {
     // TODO (@steven)
-    emp::vector<bool> place_holder;
+    using Agent::scores_by_testcase;
+    AGP__program_t program;
 
-    emp::vector<bool> & GetGenome() { return place_holder; }
+    AvidaGPAgent(const AGP__program_t & _p)
+    : Agent(), program(_p)
+    { ; }
+
+    AvidaGPAgent(const AvidaGPAgent && in)
+      : Agent(in), program(in.program)
+    { ; }
+
+    AvidaGPAgent(const AvidaGPAgent & in)
+      : Agent(in), program(in.program)
+    { ; }
+
+
+    AGP__program_t & GetGenome() { return program; }
   };
 
   struct TestcaseInput {
@@ -158,7 +177,9 @@ protected:
   emp::Ptr<SGP__hardware_t> sgp_eval_hw;    ///< Hardware used to evaluate SignalGP programs during evolution/analysis.
 
   // AvidaGP-specifics.
-  emp::Ptr<AGP__world_t> agp_world;       ///< World for evolving AvidaGP agents.
+  emp::Ptr<AGP__world_t> agp_world;         ///< World for evolving AvidaGP agents.
+  emp::Ptr<AGP__inst_lib_t> agp_inst_lib;   ///< AvidaGP instruction library.
+  emp::Ptr<AGP__hardware_t> agp_eval_hw;    ///< Hardware used to evaluate AvidaGP programs during evolution/analysis.
   // TODO (@steven)
 
   // --- Experiment signals ---
@@ -353,6 +374,7 @@ public:
     sgp_inst_lib = emp::NewPtr<SGP__inst_lib_t>();
     sgp_event_lib = emp::NewPtr<SGP__event_lib_t>();
     // TODO (@steven): agp inst lib.
+    agp_inst_lib = emp::NewPtr<AGP__inst_lib_t>();
 
     if (RUN_MODE == RUN_ID__EXP) {
       // Make data directory.
@@ -415,7 +437,49 @@ public:
   void SGP__ResetHW(const SGP__memory_t & main_in_mem=SGP__memory_t());
 
   // -- AvidaGP Instructions --
-  // TODO (@steven)
+  // TODO (@steven) Actual implementation
+  // BoardWidth
+  void AGP_Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // EndTurn
+  void AGP_Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // SetMoveXY
+  void AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_SetMoveID(SGP__hardware_t &hw, const SGP__inst_t &inst);
+  // GetMoveXY
+  void AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // IsValidXY
+  void AGP__Inst_IsValidXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_IsValidID(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // AdjacentXY
+  void AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // ValidMovesCnt
+  void AGP_Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // ValidOppMovesCnt
+  void AGP_Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // GetBoardValue
+  void AGP_Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP_Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // PlaceXY
+  void AGP_Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP_Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // PlaceOppXY
+  void AGP_Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP_Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // FlipCntXY
+  void AGP_Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP_Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // OppFlipCntXY
+  void AGP_Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP_Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // FrontierCntXY
+  void AGP_Inst_FrontierCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP_Inst_FrontierCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // ResetBoard
+  void AGP_Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // IsOver
+  void AGP_Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
 
   // -- SignalGP Instructions --
   // TODO: actual instruction implementations
@@ -636,6 +700,39 @@ void LineageExp::ConfigSGP() {
 
 void LineageExp::ConfigAGP() {
   // TODO (@steven)
+  agp_world->Reset();
+  agp_world->SetWellMixed(true);
+
+  agp_inst_lib->AddInst("Dec", AGP__inst_lib_t::Inst_Dec, 1, "Decrement value in reg Arg1");
+  agp_inst_lib->AddInst("Not", AGP__inst_lib_t::Inst_Not, 1, "Logically toggle value in reg Arg1");
+  agp_inst_lib->AddInst("SetReg", AGP__inst_lib_t::Inst_SetReg, 2, "Set reg Arg1 to numerical value Arg2");
+  agp_inst_lib->AddInst("Add", AGP__inst_lib_t::Inst_Add, 3, "regs: Arg3 = Arg1 + Arg2");
+  agp_inst_lib->AddInst("Sub", AGP__inst_lib_t::Inst_Sub, 3, "regs: Arg3 = Arg1 - Arg2");
+  agp_inst_lib->AddInst("Mult", AGP__inst_lib_t::Inst_Mult, 3, "regs: Arg3 = Arg1 * Arg2");
+  agp_inst_lib->AddInst("Div", AGP__inst_lib_t::Inst_Div, 3, "regs: Arg3 = Arg1 / Arg2");
+  agp_inst_lib->AddInst("Inc", AGP__inst_lib_t::Inst_Inc, 1, "Increment value in reg Arg1");
+  agp_inst_lib->AddInst("Mod", AGP__inst_lib_t::Inst_Mod, 3, "regs: Arg3 = Arg1 % Arg2");
+  agp_inst_lib->AddInst("TestEqu", AGP__inst_lib_t::Inst_TestEqu, 3, "regs: Arg3 = (Arg1 == Arg2)");
+  agp_inst_lib->AddInst("TestNEqu", AGP__inst_lib_t::Inst_TestNEqu, 3, "regs: Arg3 = (Arg1 != Arg2)");
+  agp_inst_lib->AddInst("TestLess", AGP__inst_lib_t::Inst_TestLess, 3, "regs: Arg3 = (Arg1 < Arg2)");
+  agp_inst_lib->AddInst("If", AGP__inst_lib_t::Inst_If, 2, "If reg Arg1 != 0, scope -> Arg2; else skip scope", emp::ScopeType::BASIC, 1);
+  agp_inst_lib->AddInst("While", AGP__inst_lib_t::Inst_While, 2, "Until reg Arg1 != 0, repeat scope Arg2; else skip", emp::ScopeType::LOOP, 1);
+  agp_inst_lib->AddInst("Countdown", AGP__inst_lib_t::Inst_Countdown, 2, "Countdown reg Arg1 to zero; scope to Arg2", emp::ScopeType::LOOP, 1);
+  agp_inst_lib->AddInst("Break", AGP__inst_lib_t::Inst_Break, 1, "Break out of scope Arg1");
+  agp_inst_lib->AddInst("Scope", AGP__inst_lib_t::Inst_Scope, 1, "Enter scope Arg1", emp::ScopeType::BASIC, 0);
+  agp_inst_lib->AddInst("Define", AGP__inst_lib_t::Inst_Define, 2, "Build function Arg1 in scope Arg2", emp::ScopeType::FUNCTION, 1);
+  agp_inst_lib->AddInst("Call", AGP__inst_lib_t::Inst_Call, 1, "Call previously defined function Arg1");
+  agp_inst_lib->AddInst("Push", AGP__inst_lib_t::Inst_Push, 2, "Push reg Arg1 onto stack Arg2");
+  agp_inst_lib->AddInst("Pop", AGP__inst_lib_t::Inst_Pop, 2, "Pop stack Arg1 into reg Arg2");
+  agp_inst_lib->AddInst("Input", AGP__inst_lib_t::Inst_Input, 2, "Pull next value from input Arg1 into reg Arg2");
+  agp_inst_lib->AddInst("Output", AGP__inst_lib_t::Inst_Output, 2, "Push reg Arg1 into output Arg2");
+  agp_inst_lib->AddInst("CopyVal", AGP__inst_lib_t::Inst_CopyVal, 2, "Copy reg Arg1 into reg Arg2");
+  agp_inst_lib->AddInst("ScopeReg", AGP__inst_lib_t::Inst_ScopeReg, 1, "Backup reg Arg1; restore at end of scope");
+
+  // - Non-default instruction set.
+  // TODO (@steven): Fill out instruction descriptions.
+
+
 }
 
 #endif
