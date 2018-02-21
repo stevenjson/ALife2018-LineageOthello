@@ -47,6 +47,14 @@ constexpr int AGENT_VIEW__OPEN_ID = 0;
 constexpr int AGENT_VIEW__SELF_ID = 1;
 constexpr int AGENT_VIEW__OPP_ID = 2;
 
+constexpr size_t SELECTION_METHOD_ID__TOURNAMENT = 0;
+constexpr size_t SELECTION_METHOD_ID__LEXICASE = 1;
+constexpr size_t SELECTION_METHOD_ID__ECOEA = 2;
+constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
+
+constexpr size_t POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE = 0;
+constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
+
 class LineageExp {
 public:
   // SignalGP-specific type aliases:
@@ -64,34 +72,34 @@ public:
   using AGP__hardware_t = emp::AvidaGP;
 
   struct Agent {
-    emp::vector<double> scores_by_testcase;
+    size_t agent_id;
 
-    Agent() : scores_by_testcase() { ; }
-    Agent(const Agent && in) : scores_by_testcase(in.scores_by_testcase) { ; }
-    Agent(const Agent & in) : scores_by_testcase(in.scores_by_testcase) { ; }
-
+    size_t GetID() const { return agent_id; }
+    void SetID(size_t id) { agent_id = id; }
   };
 
   struct SignalGPAgent : Agent {
-    using Agent::scores_by_testcase;
+    using Agent::agent_id;
     SGP__program_t program;
 
     SignalGPAgent(const SGP__program_t & _p)
-    : Agent(), program(_p)
+      : program(_p)
     { ; }
 
     SignalGPAgent(const SignalGPAgent && in)
-      : Agent(in), program(in.program)
+      : program(in.program)
     { ; }
 
     SignalGPAgent(const SignalGPAgent & in)
-      : Agent(in), program(in.program)
+      : program(in.program)
     { ; }
 
     SGP__program_t & GetGenome() { return program; }
+
   };
 
   struct AvidaGPAgent : Agent {
+    using Agent::agent_id;
     // TODO (@steven)
     emp::vector<bool> place_holder;
 
@@ -128,12 +136,20 @@ protected:
   size_t REPRESENTATION;
   std::string TEST_CASE_FILE;
   std::string ANCESTOR_FPATH;
+  size_t POP_INITIALIZATION_METHOD;
   // Selection Group parameters
   size_t SELECTION_METHOD;
   size_t TOURNAMENT_SIZE;
+  // Scoring Group parameters
+  double SCORE_MOVE__ILLEGAL_MOVE_VALUE;
+  double SCORE_MOVE__LEGAL_MOVE_VALUE;
+  double SCORE_MOVE__EXPERT_MOVE_VALUE;
   // Othello Group parameters
   size_t OTHELLO_BOARD_WIDTH;
   size_t OTHELLO_HW_BOARDS;
+  // SignalGP program group parameters
+  size_t SGP_FUNCTION_LEN;
+  size_t SGP_FUNCTION_CNT;
   // SignalGP Hardware Group parameters
   size_t SGP_HW_MAX_CORES;
   size_t SGP_HW_MAX_CALL_DEPTH;
@@ -154,6 +170,9 @@ protected:
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
   using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
   size_t cur_testcase;
+  emp::BitVector testcase_eval_cache;
+  emp::vector<double> testcase_score_cache;
+  emp::vector<double> agent_score_cache;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
@@ -168,8 +187,10 @@ protected:
   // TODO (@steven)
 
   // --- Experiment signals ---
+  // All of these are hardware-specific.
   // - DoBeginRun: this is where you'll setup systematics, fitness file, etc. with the world.
   emp::Signal<void(void)> do_begin_run_setup_sig;
+  emp::Signal<void(void)> do_pop_init_sig;
   // - DoEvaluation: evaluate e'rybody!
   emp::Signal<void(void)> do_evaluation_sig;
   // - DoSelection: Do selection.
@@ -190,11 +211,13 @@ protected:
 
   // Functors!
   // - Get move
-  std::function<size_t(void)> get_eval_agent_move;
+  std::function<size_t(void)> get_eval_agent_move;              ///< Hardware-specific!
   // - Get done
-  std::function<bool(void)> get_eval_agent_done;
+  std::function<bool(void)> get_eval_agent_done;                ///< Hardware-specific!
   // - Get player ID
-  std::function<size_t(void)> get_eval_agent_playerID;
+  std::function<size_t(void)> get_eval_agent_playerID;          ///< Hardware-specific!
+  // - Given player move and test case, calculate agent score.
+  std::function<double(test_case_t &, size_t)> calc_test_score; ///< Shared between hardware types.
 
   // Protected functions.
   /// Evaluate GP move (hardware-agnostic).
@@ -249,7 +272,6 @@ protected:
   /// test case.
   /// Expected line contents: game board positions, player ID, expert move, round
   test_case_t GenerateTestcase(emp::vector<std::string> & test_case_strings) {
-    std::cout << "Generate test case!" << std::endl;
     // Build test case input.
     TestcaseInput input(OTHELLO_BOARD_WIDTH);
     emp::Othello & game = input.game;
@@ -301,6 +323,37 @@ protected:
     return test_case_t(input, output);
   }
 
+  /// Get appropriate score cache ID.
+  size_t GetCacheID(size_t agentID, size_t testID) {
+    return (agentID * testcases.GetSize()) + testID;
+  }
+  /// Run all tests on current eval hardware.
+  void Evaluate(Agent & agent) {
+    const size_t id = agent.GetID();
+    // Evaluate agent on all test cases.
+    double score = 0.0;
+    for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
+      score += this->RunTest(cur_testcase, id);
+    }
+    agent_score_cache[id] = score;
+  }
+  /// Run test return test score.
+  double RunTest(size_t agentID, size_t testID) {
+    const size_t cID = GetCacheID(agentID, testID);
+    // If we haven't cached this test case yet, go ahead and calculate it.
+    if (!testcase_eval_cache[cID]) {
+      test_case_t & test = testcases[testID];
+      size_t move = EvalMove__GP(test.GetInput().game, false);
+      double score = calc_test_score(test, move);
+      testcase_eval_cache.Set(cID, true);
+      testcase_score_cache[cID] = score;
+    }
+    return testcase_score_cache[cID];
+  }
+  /// Clear cache.
+  void ClearCache() { testcase_eval_cache.Clear(); }
+
+
 public:
   LineageExp(const LineageConfig & config)
     : testcases(), cur_testcase(0)
@@ -313,10 +366,16 @@ public:
     REPRESENTATION = config.REPRESENTATION();
     TEST_CASE_FILE = config.TEST_CASE_FILE();
     ANCESTOR_FPATH = config.ANCESTOR_FPATH();
+    POP_INITIALIZATION_METHOD = config.POP_INITIALIZATION_METHOD();
     SELECTION_METHOD = config.SELECTION_METHOD();
     TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
+    SCORE_MOVE__ILLEGAL_MOVE_VALUE = config.SCORE_MOVE__ILLEGAL_MOVE_VALUE();
+    SCORE_MOVE__LEGAL_MOVE_VALUE = config.SCORE_MOVE__LEGAL_MOVE_VALUE();
+    SCORE_MOVE__EXPERT_MOVE_VALUE = config.SCORE_MOVE__EXPERT_MOVE_VALUE();
     OTHELLO_BOARD_WIDTH = config.OTHELLO_BOARD_WIDTH();
     OTHELLO_HW_BOARDS = config.OTHELLO_HW_BOARDS();
+    SGP_FUNCTION_LEN = config.SGP_FUNCTION_LEN();
+    SGP_FUNCTION_CNT = config.SGP_FUNCTION_CNT();
     SGP_HW_MAX_CORES = config.SGP_HW_MAX_CORES();
     SGP_HW_MAX_CALL_DEPTH = config.SGP_HW_MAX_CALL_DEPTH();
     SGP_HW_MIN_BIND_THRESH = config.SGP_HW_MIN_BIND_THRESH();
@@ -334,6 +393,37 @@ public:
     // Load test cases.
     testcases.RegisterTestcaseReader([this](emp::vector<std::string> & strs) { return this->GenerateTestcase(strs); });
     testcases.LoadTestcases(TEST_CASE_FILE);
+
+    // Setup testcase cache.
+    testcase_eval_cache.Resize(POP_SIZE * testcases.GetSize());
+    testcase_eval_cache.Clear();
+    testcase_score_cache.resize(POP_SIZE * testcases.GetSize(), 0.0);
+    // test for particular agent given by: (agentID * testcases.size()) + testcase ID
+    // Clear the cache on every world update.
+    do_world_update_sig.AddAction([this](){ this->ClearCache(); });
+
+    do_begin_run_setup_sig.AddAction([this]() {
+      // Setup systematics/fitness tracking.
+      auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
+      sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
+      auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
+      fit_file.SetTimingRepeat(FITNESS_INTERVAL);
+      // 1) Generate the initial population.
+      do_pop_init_sig.Trigger();
+    });
+
+    // Given a test case and a move, how are we scoring an agent?
+    // TODO: test this
+    calc_test_score = [this](test_case_t & test, size_t move) {
+      // Score move given test.
+      if (move == test.GetOutput().expert_move) {
+        return SCORE_MOVE__EXPERT_MOVE_VALUE;
+      } else if (move >= test.GetOutput().move_validity.GetSize()) {
+        return SCORE_MOVE__ILLEGAL_MOVE_VALUE;
+      } else {
+        return (test.GetOutput().move_validity[move]) ? SCORE_MOVE__LEGAL_MOVE_VALUE : SCORE_MOVE__ILLEGAL_MOVE_VALUE;
+      }
+    };
 
     // for (size_t i = 0; i < testcases.GetSize(); ++i) {
     //   std::cout << "============= Test case: " << i << " =============" << std::endl;
@@ -404,10 +494,19 @@ public:
   }
 
   void RunStep() {
-    do_evaluation_sig.Trigger();
-    do_selection_sig.Trigger();
-    do_world_update_sig.Trigger();
-    do_mutation_sig.Trigger();
+    do_evaluation_sig.Trigger();    // Update agent scores.
+    // <- Update org phenotypes in systematics
+    do_selection_sig.Trigger();     // Do selection (selection, reproduction).
+    do_world_update_sig.Trigger();  // Do world update (population turnover, clear score caches).
+    do_mutation_sig.Trigger();      // Do mutations (mutate everyone in the population).
+    // <- Update org genotypes in systematics
+  }
+
+  // Fitness functions
+  // TODO: is this actually going to work?
+  // -- Also, probably want to cache this value as well.
+  double CalcFitness(Agent & agent) {
+    return agent_score_cache[agent.GetID()];
   }
 
   // Mutation functions
@@ -415,9 +514,11 @@ public:
   size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);  // TODO
 
   // Population snapshot functions
-  void SGP_Snapshot_SingleFile(size_t update); // TODO
+  void SGP_Snapshot_SingleFile(size_t update);
 
   // SignalGP utility functions.
+  void SGP__InitPopulation_Random();
+  void SGP__InitPopulation_FromAncestorFile();
   void SGP__ResetHW(const SGP__memory_t & main_in_mem=SGP__memory_t());
 
   // -- AvidaGP Instructions --
@@ -470,12 +571,105 @@ public:
   void SGP__Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
 };
 
+// SignalGP Functions
+/// Reset the SignalGP evaluation hardware, setting input memory of
+/// main thread to be equal to main_in_mem.
 void LineageExp::SGP__ResetHW(const SGP__memory_t & main_in_mem) {
   sgp_eval_hw->ResetHardware();
   sgp_eval_hw->SetTrait(TRAIT_ID__MOVE, -1);
   sgp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
   sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
   sgp_eval_hw->SpawnCore(0, main_in_mem, true);
+}
+
+void LineageExp::SGP__InitPopulation_Random() {
+  for (size_t p = 0; p < POP_SIZE; ++p) {
+    SGP__program_t prog(sgp_inst_lib);
+    for (size_t f = 0; f < SGP_FUNCTION_CNT; ++f) {
+      prog.PushFunction();
+      prog[f].affinity.Randomize(*random);
+      for (size_t i = 0; i < SGP_FUNCTION_LEN; ++i) {
+        const size_t instID = random->GetUInt(sgp_inst_lib->GetSize());
+        const size_t a0 = random->GetUInt(0, SGP_PROG_MAX_ARG_VAL);
+        const size_t a1 = random->GetUInt(0, SGP_PROG_MAX_ARG_VAL);
+        const size_t a2 = random->GetUInt(0, SGP_PROG_MAX_ARG_VAL);
+        SGP__inst_t inst(instID, a0, a1, a2);
+        inst.affinity.Randomize(*random);
+        prog[f].PushInst(inst);
+      }
+    }
+    sgp_world->Inject(prog,1);
+  }
+}
+
+void LineageExp::SGP__InitPopulation_FromAncestorFile() {
+  // Configure the ancestor program.
+  SGP__program_t ancestor_prog(sgp_inst_lib);
+  std::ifstream ancestor_fstream(ANCESTOR_FPATH);
+  if (!ancestor_fstream.is_open()) {
+    std::cout << "Failed to open ancestor program file(" << ANCESTOR_FPATH << "). Exiting..." << std::endl;
+    exit(-1);
+  }
+  ancestor_prog.Load(ancestor_fstream);
+  std::cout << " --- Ancestor program: ---" << std::endl;
+  ancestor_prog.PrintProgramFull();
+  std::cout << " -------------------------" << std::endl;
+  sgp_world->Inject(ancestor_prog, POP_SIZE);    // Inject a bunch of ancestors into the population.
+}
+
+/// Mutate an SGP agent's program. Only does tag mutations, instruction substitutions, and
+/// argument substitutions. (maintains constand-length genomes)
+size_t LineageExp::SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd) {
+  SGP__program_t & program = agent.GetGenome();
+  size_t mut_cnt = 0;
+  // For each function:
+  for (size_t fID = 0; fID < program.GetSize(); ++fID) {
+    // Mutate affinity.
+    for (size_t i = 0; i < program[fID].GetAffinity().GetSize(); ++i) {
+      SGP__tag_t & aff = program[fID].GetAffinity();
+      if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
+        ++mut_cnt;
+        aff.Set(i, !aff.Get(i));
+      }
+    }
+    // Substitutions?
+    for (size_t i = 0; i < program[fID].GetSize(); ++i) {
+      SGP__inst_t & inst = program[fID][i];
+      // Mutate affinity (even if it doesn't have one).
+      for (size_t k = 0; k < inst.affinity.GetSize(); ++k) {
+        if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
+          ++mut_cnt;
+          inst.affinity.Set(k, !inst.affinity.Get(k));
+        }
+      }
+      // Mutate instruction.
+      if (rnd.P(SGP_PER_INST__SUB_RATE)) {
+        ++mut_cnt;
+        inst.id = rnd.GetUInt(program.GetInstLib()->GetSize());
+      }
+      // Mutate arguments (even if they aren't relevent to instruction).
+      for (size_t k = 0; k < SGP__hardware_t::MAX_INST_ARGS; ++k) {
+        if (rnd.P(SGP_PER_INST__SUB_RATE)) {
+          ++mut_cnt;
+          inst.args[k] = rnd.GetInt(SGP_PROG_MAX_ARG_VAL);
+        }
+      }
+    }
+  }
+  return mut_cnt;
+}
+
+void LineageExp::SGP_Snapshot_SingleFile(size_t update) {
+  std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
+  mkdir(snapshot_dir.c_str(), ACCESSPERMS);
+  // For each program in the population, dump the full program description in a single file.
+  std::ofstream prog_ofstream(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".pop");
+  for (size_t i = 0; i < sgp_world->GetSize(); ++i) {
+    if (i) prog_ofstream << "===\n";
+    SignalGPAgent & agent = sgp_world->GetOrg(i);
+    agent.program.PrintProgramFull(prog_ofstream);
+  }
+  prog_ofstream.close();
 }
 
 // --- SGP instruction implementations ---
@@ -750,6 +944,8 @@ void LineageExp::ConfigSGP() {
   // Configure the world.
   sgp_world->Reset();
   sgp_world->SetWellMixed(true);
+  sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate(agent, rnd); });
+  sgp_world->SetFitFun([this](Agent & agent) { return this->CalcFitness(agent); });
 
   // Configure the instruction set.
   // - Default instruction set.
@@ -862,37 +1058,64 @@ void LineageExp::ConfigSGP() {
 
   // Setup triggers!
   // Configure initial run setup
-  // - QUESTION: Do we want ancestors to be NOP ancestors or randomly generated programs?
-  do_begin_run_setup_sig.AddAction([this]() {
-    // Setup systematics/fitness tracking.
-    auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
-    sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
-    fit_file.SetTimingRepeat(FITNESS_INTERVAL);
-    // 1) Load/configure ancestor, fill out population.
-    // TODO
-  });
+  switch (POP_INITIALIZATION_METHOD) {
+    case POP_INITIALIZATION_METHOD_ID__RANDOM_POP:
+      do_pop_init_sig.AddAction([this]() {
+        this->SGP__InitPopulation_Random();
+      });
+      break;
+    case POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE:
+      do_pop_init_sig.AddAction([this]() {
+        this->SGP__InitPopulation_FromAncestorFile();
+      });
+      break;
+    default:
+      std::cout << "Unrecognized population initialization method! Exiting..." << std::endl;
+      exit(-1);
+  }
 
   // - Configure evaluation
+  // NOTE: phasing out do_evaluation? --> Can't if we want to minimize loading shit onto hardware.
+  // TO do this, need to make sure:
+  //  - Agent program is loaded on eval hardware.
+  //  - cur_testcase is set to current test case.
+  // NOTE: AAAHHH Still want to do all evaluations at once (at least for a single agent to
+  //       minimize the number of times I have to load a program onto the evaluation hardware).
   do_evaluation_sig.AddAction([this]() {
     for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
       // Evaluate agent given by id.
       SignalGPAgent & our_hero = sgp_world->GetOrg(id);
-      our_hero.scores_by_testcase.resize(testcases.GetSize(), 0);
+      our_hero.SetID(id);
       sgp_eval_hw->SetProgram(our_hero.GetGenome());
-      // Evaluate agent on all test cases.
-      for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
-        // TODO: evaluate agent on test case.
-        // size_t move = EvalMove__GP();
-      }
+      this->Evaluate(our_hero);
     }
   });
 
   // - Configure selection
-  do_selection_sig.AddAction([this]() {
-    emp::EliteSelect(*sgp_world, 1, 1);
-    emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
-  });
+  // TODO: configure different based on selection method settings.
+  switch (SELECTION_METHOD) {
+    case SELECTION_METHOD_ID__TOURNAMENT:
+      do_selection_sig.AddAction([this]() {
+        emp::EliteSelect(*sgp_world, 1, 1);
+        emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
+      });
+      break;
+    case SELECTION_METHOD_ID__LEXICASE:
+      std::cout << "Lexicase selection not setup yet..." << std::endl;
+      exit(-1);
+      break;
+    case SELECTION_METHOD_ID__ECOEA:
+      std::cout << "ECO-EA selection not setup yet..." << std::endl;
+      exit(-1);
+      break;
+    case SELECTION_METHOD_ID__MAPELITES:
+      std::cout << "Map-Elites selection not setup yet..." << std::endl;
+      exit(-1);
+      break;
+    default:
+      std::cout << "Unrecognized selection method! Exiting..." << std::endl;
+      exit(-1);
+  }
 
   // - Configure world upate.
   do_world_update_sig.AddAction([this]() { sgp_world->Update(); });
@@ -901,9 +1124,38 @@ void LineageExp::ConfigSGP() {
   do_mutation_sig.AddAction([this]() { sgp_world->DoMutations(1); });
 
   // do_pop_snapshot
-  // do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
 
   // do_analysis --> TODO
+
+  // - Setup move evaluation signals/functors -
+  // Setup begin_turn_signal action:
+  //  - Reset the evaluation hardware. Give hardware accurate playerID, and update the dreamboard.
+  begin_turn_sig.AddAction([this](const emp::Othello & game) {
+    const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+    SGP__ResetHW();
+    sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
+    othello_dreamware->Reset(game);
+    othello_dreamware->SetActiveDream(0);
+    othello_dreamware->SetPlayerID(playerID);
+  });
+
+  agent_advance_sig.AddAction([this]() {
+    sgp_eval_hw->SingleProcess();
+  });
+
+  get_eval_agent_move = [this]() {
+    return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+  };
+
+  get_eval_agent_done = [this]() {
+    return (bool)sgp_eval_hw->GetTrait(TRAIT_ID__DONE);
+  };
+
+  get_eval_agent_playerID = [this]() {
+    return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
+  };
+
 }
 
 void LineageExp::ConfigAGP() {
