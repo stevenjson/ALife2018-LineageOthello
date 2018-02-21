@@ -78,7 +78,6 @@ public:
 
   struct Agent {
     size_t agent_id;
-
     size_t GetID() const { return agent_id; }
     void SetID(size_t id) { agent_id = id; }
   };
@@ -92,11 +91,11 @@ public:
     { ; }
 
     SignalGPAgent(const SignalGPAgent && in)
-      : program(in.program)
+      : Agent(in), program(in.program)
     { ; }
 
     SignalGPAgent(const SignalGPAgent & in)
-      : program(in.program)
+      : Agent(in), program(in.program)
     { ; }
 
     SGP__program_t & GetGenome() { return program; }
@@ -105,8 +104,6 @@ public:
 
   struct AvidaGPAgent : Agent {
     using Agent::agent_id;
-    // TODO (@steven)
-    using Agent::scores_by_testcase;
     AGP__program_t program;
 
     AvidaGPAgent(const AGP__program_t & _p)
@@ -120,7 +117,6 @@ public:
     AvidaGPAgent(const AvidaGPAgent & in)
       : Agent(in), program(in.program)
     { ; }
-
 
     AGP__program_t & GetGenome() { return program; }
   };
@@ -137,7 +133,8 @@ public:
 
   struct TestcaseOutput {
     size_t expert_move;             ///< What move did the expert make on the associated testcase?
-    emp::BitVector move_validity;   ///< BoardSize length bitvector describing what moves are valid on the associated testcase?
+    emp::vector<size_t> move_valid;
+    // emp::BitVector move_validity;   ///< BoardSize length bitvector describing what moves are valid on the associated testcase?
   };
 
   // More aliases
@@ -186,10 +183,13 @@ protected:
   // Experiment variables.
   emp::Ptr<emp::Random> random;
 
+  size_t update;
+
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
   using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
   size_t cur_testcase;
-  emp::BitVector testcase_eval_cache;
+  // emp::BitVector testcase_eval_cache;
+  emp::vector<size_t> testcase_eval_cach;
   emp::vector<double> testcase_score_cache;
   emp::vector<double> agent_score_cache;
 
@@ -205,12 +205,11 @@ protected:
   emp::Ptr<AGP__world_t> agp_world;         ///< World for evolving AvidaGP agents.
   emp::Ptr<AGP__inst_lib_t> agp_inst_lib;   ///< AvidaGP instruction library.
   emp::Ptr<AGP__hardware_t> agp_eval_hw;    ///< Hardware used to evaluate AvidaGP programs during evolution/analysis.
-  // TODO (@steven)
 
   // --- Experiment signals ---
   // All of these are hardware-specific.
   // - DoBeginRun: this is where you'll setup systematics, fitness file, etc. with the world.
-  emp::Signal<void(void)> do_begin_run_setup_sig;
+  emp::Signal<void(void)> do_begin_run_setup_sig; ///< Shared between AGP and SGP
   emp::Signal<void(void)> do_pop_init_sig;
   // - DoEvaluation: evaluate e'rybody!
   emp::Signal<void(void)> do_evaluation_sig;
@@ -336,10 +335,10 @@ protected:
     TestcaseOutput output;
     output.expert_move = expert_move;
     emp::vector<size_t> valid_moves = game.GetMoveOptions(playerID);
-    output.move_validity.Resize(game.GetBoardSize());   // Resize bit vector to match board size.
-    output.move_validity.Clear();                       // Set bits to 0.
+    output.move_valid.resize(game.GetBoardSize());   // Resize bit vector to match board size.
+    for (size_t i = 0; i < output.move_valid.size(); ++i) output.move_valid[i] = 0;
     for (size_t i = 0; i < valid_moves.size(); ++i) {
-      output.move_validity.Set(valid_moves[i], true);
+      output.move_valid[valid_moves[i]] = 1;
     }
     return test_case_t(input, output);
   }
@@ -354,7 +353,7 @@ protected:
     // Evaluate agent on all test cases.
     double score = 0.0;
     for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
-      score += this->RunTest(cur_testcase, id);
+      score += this->RunTest(id, cur_testcase);
     }
     agent_score_cache[id] = score;
   }
@@ -362,22 +361,24 @@ protected:
   double RunTest(size_t agentID, size_t testID) {
     const size_t cID = GetCacheID(agentID, testID);
     // If we haven't cached this test case yet, go ahead and calculate it.
-    if (!testcase_eval_cache[cID]) {
+    if (!testcase_eval_cach[cID]) {
       test_case_t & test = testcases[testID];
       size_t move = EvalMove__GP(test.GetInput().game, false);
       double score = calc_test_score(test, move);
-      testcase_eval_cache.Set(cID, true);
+      testcase_eval_cach[cID] = 1;
       testcase_score_cache[cID] = score;
     }
     return testcase_score_cache[cID];
   }
   /// Clear cache.
-  void ClearCache() { testcase_eval_cache.Clear(); }
+  void ClearCache() {
+    for (size_t i = 0; i < testcase_eval_cach.size(); ++i) { testcase_eval_cach[i] = 0; }
+  }
 
 
 public:
   LineageExp(const LineageConfig & config)
-    : testcases(), cur_testcase(0)
+    : update(0), testcases(), cur_testcase(0)
   {
     RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
@@ -416,14 +417,14 @@ public:
     testcases.LoadTestcases(TEST_CASE_FILE);
 
     // Setup testcase cache.
-    testcase_eval_cache.Resize(POP_SIZE * testcases.GetSize());
-    testcase_eval_cache.Clear();
+    testcase_eval_cach.resize(POP_SIZE * testcases.GetSize(), 0);
     testcase_score_cache.resize(POP_SIZE * testcases.GetSize(), 0.0);
+    agent_score_cache.resize(POP_SIZE, 0.0);
     // test for particular agent given by: (agentID * testcases.size()) + testcase ID
     // Clear the cache on every world update.
-    do_world_update_sig.AddAction([this](){ this->ClearCache(); });
 
     do_begin_run_setup_sig.AddAction([this]() {
+      std::cout << "Doing initial run setup." << std::endl;
       // Setup systematics/fitness tracking.
       auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
       sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
@@ -439,24 +440,35 @@ public:
       // Score move given test.
       if (move == test.GetOutput().expert_move) {
         return SCORE_MOVE__EXPERT_MOVE_VALUE;
-      } else if (move >= test.GetOutput().move_validity.GetSize()) {
+      } else if (move >= test.GetOutput().move_valid.size()) {
         return SCORE_MOVE__ILLEGAL_MOVE_VALUE;
       } else {
-        return (test.GetOutput().move_validity[move]) ? SCORE_MOVE__LEGAL_MOVE_VALUE : SCORE_MOVE__ILLEGAL_MOVE_VALUE;
+        // std::cout << "Move is in a valid position. Is it a valid move? " << test.GetOutput().move_valid[move] << std::endl;
+        return (test.GetOutput().move_valid[move]) ? SCORE_MOVE__LEGAL_MOVE_VALUE : SCORE_MOVE__ILLEGAL_MOVE_VALUE;
       }
     };
 
-    // for (size_t i = 0; i < testcases.GetSize(); ++i) {
-    //   std::cout << "============= Test case: " << i << " =============" << std::endl;
-    //   std::cout << "ID: " << testcases[i].id << std::endl;
-    //   std::cout << "Input" << std::endl;
-    //   // Board
-    //   testcases[i].GetInput().game.Print();
-    //   std::cout << "Round: " << testcases[i].GetInput().round << std::endl;
-    //   std::cout << "PlayerID: " << testcases[i].GetInput().playerID << std::endl;
-    //   std::cout << "Output" << std::endl;
-    //   std::cout << "Expert move: " << testcases[i].GetOutput().expert_move << std::endl;
-    // }
+    for (size_t i = 0; i < testcases.GetSize(); ++i) {
+      std::cout << "============= Test case: " << i << " =============" << std::endl;
+      std::cout << "ID: " << testcases[i].id << std::endl;
+      std::cout << "Input" << std::endl;
+      // Board
+      testcases[i].GetInput().game.Print();
+      auto options = testcases[i].GetInput().game.GetMoveOptions(testcases[i].GetInput().playerID);
+      std::cout << "Board options: ";
+      for (size_t j = 0; j < options.size(); ++j) {
+        std::cout << " " << options[j];
+      } std::cout << std::endl;
+      std::cout << "Valid options: ";
+      for (size_t j = 0; j < testcases[i].GetOutput().move_valid.size(); ++j) {
+        std::cout << " " << testcases[i].GetOutput().move_valid[j];
+      } std::cout << std::endl;
+      std::cout << "Board width: " << testcases[i].GetInput().game.GetBoardWidth() << std::endl;
+      std::cout << "Round: " << testcases[i].GetInput().round << std::endl;
+      std::cout << "PlayerID: " << testcases[i].GetInput().playerID << std::endl;
+      std::cout << "Output" << std::endl;
+      std::cout << "Expert move: " << testcases[i].GetOutput().expert_move << std::endl;
+    }
 
     // Configure the dreamware!
     othello_dreamware = emp::NewPtr<OthelloHardware>(OTHELLO_BOARD_WIDTH, 1);
@@ -469,7 +481,6 @@ public:
     // Configure instruction/event libraries.
     sgp_inst_lib = emp::NewPtr<SGP__inst_lib_t>();
     sgp_event_lib = emp::NewPtr<SGP__event_lib_t>();
-    // TODO (@steven): agp inst lib.
     agp_inst_lib = emp::NewPtr<AGP__inst_lib_t>();
 
     if (RUN_MODE == RUN_ID__EXP) {
@@ -490,17 +501,19 @@ public:
         std::cout << "Unrecognized representation configuration setting (" << REPRESENTATION << "). Exiting..." << std::endl;
         exit(-1);
     }
-    exit(-1);
   }
 
   ~LineageExp() {
     random.Delete();
     othello_dreamware.Delete();
     sgp_world.Delete();
+    agp_world.Delete();
     sgp_inst_lib.Delete();
+    agp_inst_lib.Delete();
     sgp_event_lib.Delete();
     sgp_eval_hw.Delete();
-    agp_world.Delete();
+    agp_eval_hw.Delete();
+
     // TODO: clean up whatever Avida-specific dynamically allocated memory we end up using.
   }
 
@@ -509,9 +522,9 @@ public:
 
   void Run() {
     do_begin_run_setup_sig.Trigger();
-    for (size_t ud = 0; ud < GENERATIONS; ++ud) {
+    for (update = 0; update <= GENERATIONS; ++update) {
       RunStep();
-      if (ud % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(ud);
+      if (update % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(update);
     }
   }
 
@@ -647,6 +660,7 @@ void LineageExp::SGP__ResetHW(const SGP__memory_t & main_in_mem) {
 }
 
 void LineageExp::SGP__InitPopulation_Random() {
+  std::cout << "Initializing population randomly!" << std::endl;
   for (size_t p = 0; p < POP_SIZE; ++p) {
     SGP__program_t prog(sgp_inst_lib);
     for (size_t f = 0; f < SGP_FUNCTION_CNT; ++f) {
@@ -667,6 +681,7 @@ void LineageExp::SGP__InitPopulation_Random() {
 }
 
 void LineageExp::SGP__InitPopulation_FromAncestorFile() {
+  std::cout << "Initializing population from ancestor file!" << std::endl;
   // Configure the ancestor program.
   SGP__program_t ancestor_prog(sgp_inst_lib);
   std::ifstream ancestor_fstream(ANCESTOR_FPATH);
@@ -1120,6 +1135,9 @@ void LineageExp::ConfigSGP() {
                         [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsOver_HW(hw, inst); },
                         1, "...");
 
+  sgp_eval_hw = emp::NewPtr<SGP__hardware_t>(sgp_inst_lib, sgp_event_lib, random);
+  // TODO: configure hardware
+
   // Setup triggers!
   // Configure initial run setup
   switch (POP_INITIALIZATION_METHOD) {
@@ -1146,13 +1164,17 @@ void LineageExp::ConfigSGP() {
   // NOTE: AAAHHH Still want to do all evaluations at once (at least for a single agent to
   //       minimize the number of times I have to load a program onto the evaluation hardware).
   do_evaluation_sig.AddAction([this]() {
+    double best_score = -32767;
     for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
+      // std::cout << "Evaluating agent: " << id << std::endl;
       // Evaluate agent given by id.
       SignalGPAgent & our_hero = sgp_world->GetOrg(id);
       our_hero.SetID(id);
       sgp_eval_hw->SetProgram(our_hero.GetGenome());
       this->Evaluate(our_hero);
+      if (agent_score_cache[id] > best_score) best_score = agent_score_cache[id];
     }
+    std::cout << "Update: " << update << " Max score: " << best_score << std::endl;
   });
 
   // - Configure selection
@@ -1182,7 +1204,7 @@ void LineageExp::ConfigSGP() {
   }
 
   // - Configure world upate.
-  do_world_update_sig.AddAction([this]() { sgp_world->Update(); });
+  do_world_update_sig.AddAction([this]() { sgp_world->Update(); this->ClearCache(); });
 
   // do_mutation
   do_mutation_sig.AddAction([this]() { sgp_world->DoMutations(1); });
@@ -1333,6 +1355,9 @@ void LineageExp::ConfigAGP() {
   // agp_inst_lib->AddInst("IsOver-HW",
   //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_IsOver_HW(hw, inst); },
   //                       1, "...");
+
+  agp_eval_hw = emp::NewPtr<AGP__hardware_t>(agp_inst_lib);
+  // TODO: whatever agp_eval_hw configs...
 
 }
 
