@@ -731,7 +731,84 @@ void LineageExp::ConfigAGP() {
 
   // - Non-default instruction set.
   // TODO (@steven): Fill out instruction descriptions.
-
+  // agp_inst_lib->AddInst("GetBoardWidth",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_GetBoardWidth(hw, inst); },
+  //                       1, "...");
+  // agp_inst_lib->AddInst("EndTurn",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_EndTurn(hw, inst); },
+  //                       0, "...");
+  // agp_inst_lib->AddInst("SetMoveXY",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_SetMoveXY(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("SetMoveID",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_SetMoveID(hw, inst); },
+  //                       1, "...");
+  // agp_inst_lib->AddInst("GetMoveXY",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetMoveXY(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("GetMoveID",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetMoveID(hw, inst); },
+  //                       1, "...");
+  // agp_inst_lib->AddInst("IsValidXY",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsValidXY(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("IsValidID",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsValidID(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("AdjacentXY",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_AdjacentXY(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("AdjacentID",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_AdjacentID(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("ValidMoveCnt-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_ValidMoveCnt_HW(hw, inst); },
+  //                       1, "...");
+  // agp_inst_lib->AddInst("ValidOppMoveCnt-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_ValidOppMoveCnt_HW(hw, inst); },
+  //                       1, "...");
+  // agp_inst_lib->AddInst("GetBoardValueXY-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_GetBoardValueXY_HW(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("GetBoardValueID-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_GetBoardValueID_HW(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("PlaceDiskXY-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceDiskXY_HW(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("PlaceDiskID-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceDiskID_HW(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("PlaceOppDiskXY-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceOppDiskXY_HW(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("PlaceOppDiskID-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceOppDiskID_HW(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("FlipCntXY-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FlipCntXY_HW(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("FlipCntID-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FlipCntID_HW(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("OppFlipCntXY-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_OppFlipCntXY_HW(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("OppFlipCntID-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_OppFlipCntID_HW(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("FrontierCntXY-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FrontierCntXY_HW(hw, inst); },
+  //                       3, "...");
+  // agp_inst_lib->AddInst("FrontierCntID-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FrontierCntID_HW(hw, inst); },
+  //                       2, "...");
+  // agp_inst_lib->AddInst("ResetBoard-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_ResetBoard_HW(hw, inst); },
+  //                       0, "...");
+  // agp_inst_lib->AddInst("IsOver-HW",
+  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_IsOver_HW(hw, inst); },
+  //                       1, "...");
 
 }
 
