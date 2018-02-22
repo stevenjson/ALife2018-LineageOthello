@@ -44,6 +44,8 @@ constexpr size_t TRAIT_ID__PLAYER_ID = 2;
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
 
+constexpr size_t ANALYSIS_TYPE_ID__DEBUGGING = 0;
+
 constexpr int AGENT_VIEW__ILLEGAL_ID = -1;
 constexpr int AGENT_VIEW__OPEN_ID = 0;
 constexpr int AGENT_VIEW__SELF_ID = 1;
@@ -179,11 +181,15 @@ protected:
   size_t FITNESS_INTERVAL;
   size_t POP_SNAPSHOT_INTERVAL;
   std::string DATA_DIRECTORY;
+  // Analysis parameters
+  size_t ANALYSIS_TYPE;
+  std::string ANALYZE_PROGRAM_FPATH;
 
   // Experiment variables.
   emp::Ptr<emp::Random> random;
 
   size_t update;
+  size_t eval_time;
 
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
   using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
@@ -251,7 +257,7 @@ protected:
     // Signal begin_turn
     begin_turn_sig.Trigger(game);
     // Run agent until time is up or until agent indicates it is done evaluating.
-    for (size_t i = 0; i < EVAL_TIME && !get_eval_agent_done(); ++i) {
+    for (eval_time = 0; eval_time < EVAL_TIME && !get_eval_agent_done(); ++eval_time) {
       agent_advance_sig.Trigger();
     }
     // Extract agent's move.
@@ -378,7 +384,7 @@ protected:
 
 public:
   LineageExp(const LineageConfig & config)
-    : update(0), testcases(), cur_testcase(0)
+    : update(0), eval_time(0), testcases(), cur_testcase(0)
   {
     RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
@@ -408,6 +414,8 @@ public:
     FITNESS_INTERVAL = config.FITNESS_INTERVAL();
     POP_SNAPSHOT_INTERVAL = config.POP_SNAPSHOT_INTERVAL();
     DATA_DIRECTORY = config.DATA_DIRECTORY();
+    ANALYSIS_TYPE = config.ANALYSIS_TYPE();
+    ANALYZE_PROGRAM_FPATH = config.ANALYZE_PROGRAM_FPATH();
 
     // Make a random number generator.
     random = emp::NewPtr<emp::Random>(RANDOM_SEED);
@@ -521,10 +529,21 @@ public:
   void ConfigAGP();
 
   void Run() {
-    do_begin_run_setup_sig.Trigger();
-    for (update = 0; update <= GENERATIONS; ++update) {
-      RunStep();
-      if (update % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(update);
+    switch (RUN_MODE) {
+      case RUN_ID__EXP: {
+        do_begin_run_setup_sig.Trigger();
+        for (update = 0; update <= GENERATIONS; ++update) {
+          RunStep();
+          if (update % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(update);
+        }
+        break;
+      }
+      case RUN_ID__ANALYSIS:
+        do_analysis_sig.Trigger();
+        break;
+      default:
+        std::cout << "Unrecognized run mode! Exiting..." << std::endl;
+        exit(-1);
     }
   }
 
@@ -555,6 +574,9 @@ public:
   void SGP__InitPopulation_Random();
   void SGP__InitPopulation_FromAncestorFile();
   void SGP__ResetHW(const SGP__memory_t & main_in_mem=SGP__memory_t());
+
+  // SignalGP Analysis functions.
+  void SGP__Debugging_Analysis();
 
   // -- AvidaGP Instructions --
   // TODO (@steven) Actual implementation
@@ -694,6 +716,45 @@ void LineageExp::SGP__InitPopulation_FromAncestorFile() {
   ancestor_prog.PrintProgramFull();
   std::cout << " -------------------------" << std::endl;
   sgp_world->Inject(ancestor_prog, POP_SIZE);    // Inject a bunch of ancestors into the population.
+}
+
+/// Analysis mode used for tracing program.
+/// Primary purpose of this analysis type is to help debug this experiment. Woo!
+void LineageExp::SGP__Debugging_Analysis() {
+  std::cout << "\nRunning DEBUGGING analysis...\n" << std::endl;
+  // Configure analysis program.
+  SGP__program_t analyze_prog(sgp_inst_lib);
+  std::ifstream analyze_fstream(ANALYZE_PROGRAM_FPATH);
+  if (!analyze_fstream.is_open()) {
+    std::cout << "Failed to open analysis program file(" << ANALYZE_PROGRAM_FPATH << "). Exiting..." << std::endl;
+    exit(-1);
+  }
+  analyze_prog.Load(analyze_fstream);
+  std::cout << " --- Analysis program: ---" << std::endl;
+  analyze_prog.PrintProgramFull();
+  std::cout << " -------------------------" << std::endl;
+
+  ClearCache();
+
+  // Load program onto agent.
+  SignalGPAgent our_hero(analyze_prog);
+  our_hero.SetID(0);
+  sgp_eval_hw->SetProgram(our_hero.GetGenome());
+  // this->Evaluate(our_hero);
+  double score = 0.0;
+  for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
+    double test_score = RunTest(our_hero.GetID(), cur_testcase);
+    std::cout << "TEST CASE " << cur_testcase << " SCORE: " << test_score << std::endl;
+    score += test_score;
+    // How did it do?
+  }
+  agent_score_cache[our_hero.GetID()] = score;
+
+  std::cout << "\n\nFINAL SCORE (total): " << score << std::endl;
+  std::cout << "Test case scores: {";
+  for (size_t i = 0; i < testcases.GetSize(); ++i) {
+    std::cout << "Test " << i << ": " << testcase_score_cache[GetCacheID(our_hero.GetID(), i)] << ", ";
+  } std::cout << "}" << std::endl;
 }
 
 /// Mutate an SGP agent's program. Only does tag mutations, instruction substitutions, and
@@ -1136,7 +1197,9 @@ void LineageExp::ConfigSGP() {
                         1, "...");
 
   sgp_eval_hw = emp::NewPtr<SGP__hardware_t>(sgp_inst_lib, sgp_event_lib, random);
-  // TODO: configure hardware
+  sgp_eval_hw->SetMinBindThresh(SGP_HW_MIN_BIND_THRESH);
+  sgp_eval_hw->SetMaxCores(SGP_HW_MAX_CORES);
+  sgp_eval_hw->SetMaxCallDepth(SGP_HW_MAX_CALL_DEPTH);
 
   // Setup triggers!
   // Configure initial run setup
@@ -1157,12 +1220,6 @@ void LineageExp::ConfigSGP() {
   }
 
   // - Configure evaluation
-  // NOTE: phasing out do_evaluation? --> Can't if we want to minimize loading shit onto hardware.
-  // TO do this, need to make sure:
-  //  - Agent program is loaded on eval hardware.
-  //  - cur_testcase is set to current test case.
-  // NOTE: AAAHHH Still want to do all evaluations at once (at least for a single agent to
-  //       minimize the number of times I have to load a program onto the evaluation hardware).
   do_evaluation_sig.AddAction([this]() {
     double best_score = -32767;
     for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
@@ -1212,27 +1269,102 @@ void LineageExp::ConfigSGP() {
   // do_pop_snapshot
   do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
 
-  // do_analysis --> TODO
+  // ANALYSIS_TYPE ANALYSIS_TYPE_ID__DEBUGGING
+  switch (RUN_MODE) {
+
+    case RUN_ID__EXP: {
+      // Setup run-mode agent advance signal response.
+      agent_advance_sig.AddAction([this]() {
+        sgp_eval_hw->SingleProcess();
+      });
+      // Setup run-mode begin turn signal response.
+      begin_turn_sig.AddAction([this](const emp::Othello & game) {
+        const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+        SGP__ResetHW();
+        sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
+        othello_dreamware->Reset(game);
+        othello_dreamware->SetActiveDream(0);
+        othello_dreamware->SetPlayerID(playerID);
+      });
+      // Setup non-verbose get move.
+      get_eval_agent_move = [this]() {
+        return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+      };
+
+      break;
+    }
+
+    case RUN_ID__ANALYSIS: {
+      switch (ANALYSIS_TYPE) {
+
+        case ANALYSIS_TYPE_ID__DEBUGGING: {
+          // Debugging analysis signal response.
+          do_analysis_sig.AddAction([this]() { this->SGP__Debugging_Analysis(); });
+          // Setup a verbose agent_advance_sig
+          agent_advance_sig.AddAction([this]() {
+            std::cout << "----- EVAL STEP: " << eval_time << " -----" << std::endl;
+            sgp_eval_hw->SingleProcess();
+            sgp_eval_hw->PrintState();
+            std::cout << "--- DREAMBOARD STATE ---" << std::endl;
+            othello_dreamware->GetActiveDreamOthello().Print();
+          });
+          // Setup a verbose begin_turn_sig response.
+          begin_turn_sig.AddAction([this](const emp::Othello & game) {
+            const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+            std::cout << "===============================================" << std::endl;
+            std::cout << "TEST CASE: " << cur_testcase << std::endl;
+            std::cout << "ID: " << testcases[cur_testcase].id << std::endl;
+            std::cout << " ----- Input ----- " << std::endl;
+            // Board
+            testcases[cur_testcase].GetInput().game.Print();
+            auto options = testcases[cur_testcase].GetInput().game.GetMoveOptions(testcases[cur_testcase].GetInput().playerID);
+            std::cout << "Board width: " << testcases[cur_testcase].GetInput().game.GetBoardWidth() << std::endl;
+            std::cout << "Round: " << testcases[cur_testcase].GetInput().round << std::endl;
+            std::cout << "PlayerID: " << testcases[cur_testcase].GetInput().playerID << std::endl;
+            std::cout << " ----- Output ----- " << std::endl;
+            std::cout << "Expert move: " << testcases[cur_testcase].GetOutput().expert_move << std::endl;
+            std::cout << "Board options: ";
+            for (size_t j = 0; j < options.size(); ++j) {
+              std::cout << " " << options[j];
+            } std::cout << std::endl;
+            std::cout << "Valid options: ";
+            for (size_t j = 0; j < testcases[cur_testcase].GetOutput().move_valid.size(); ++j) {
+              std::cout << " " << testcases[cur_testcase].GetOutput().move_valid[j];
+            } std::cout << std::endl;
+
+            SGP__ResetHW();
+            sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
+            othello_dreamware->Reset(game);
+            othello_dreamware->SetActiveDream(0);
+            othello_dreamware->SetPlayerID(playerID);
+          });
+
+          get_eval_agent_move = [this]() {
+            size_t move = (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+            std::cout << "SELECTED MOVE: " << move << std::endl;
+            return move;
+          };
+
+          break;
+        }
+        default:
+          std::cout << "Unrecognized analysis type. Exiting..." << std::endl;
+          exit(-1);
+      }
+      break;
+    }
+
+    default:
+      std::cout << "Unrecognized run mode! Exiting..." << std::endl;
+      exit(-1);
+  }
+
+
+
 
   // - Setup move evaluation signals/functors -
   // Setup begin_turn_signal action:
   //  - Reset the evaluation hardware. Give hardware accurate playerID, and update the dreamboard.
-  begin_turn_sig.AddAction([this](const emp::Othello & game) {
-    const size_t playerID = testcases[cur_testcase].GetInput().playerID;
-    SGP__ResetHW();
-    sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
-    othello_dreamware->Reset(game);
-    othello_dreamware->SetActiveDream(0);
-    othello_dreamware->SetPlayerID(playerID);
-  });
-
-  agent_advance_sig.AddAction([this]() {
-    sgp_eval_hw->SingleProcess();
-  });
-
-  get_eval_agent_move = [this]() {
-    return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__MOVE);
-  };
 
   get_eval_agent_done = [this]() {
     return (bool)sgp_eval_hw->GetTrait(TRAIT_ID__DONE);
