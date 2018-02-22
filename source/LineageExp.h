@@ -12,7 +12,8 @@
 #include "base/Ptr.h"
 #include "base/vector.h"
 #include "control/Signal.h"
-#include "Evolve/World.h"
+// #include "Evolve/World.h"
+#include "Evo/World.h"
 #include "games/Othello.h"
 #include "hardware/EventDrivenGP.h"
 #include "hardware/AvidaGP.h"
@@ -443,7 +444,6 @@ public:
     });
 
     // Given a test case and a move, how are we scoring an agent?
-    // TODO: test this
     calc_test_score = [this](test_case_t & test, size_t move) {
       // Score move given test.
       if (move == test.GetOutput().expert_move) {
@@ -557,14 +557,13 @@ public:
   }
 
   // Fitness functions
-  // TODO: is this actually going to work?
   // -- Also, probably want to cache this value as well.
   double CalcFitness(Agent & agent) {
     return agent_score_cache[agent.GetID()];
   }
 
   // Mutation functions
-  size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd); // TODO
+  size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd);
   size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);  // TODO
 
   // Population snapshot functions
@@ -584,16 +583,16 @@ public:
   void AGP_Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // EndTurn
   void AGP_Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // SetMoveXY
+  // SetMove
   void AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP__Inst_SetMoveID(SGP__hardware_t &hw, const SGP__inst_t &inst);
-  // GetMoveXY
+  void AGP__Inst_SetMoveID(AGP__hardware_t &hw, const SGP__inst_t &inst);
+  // GetMove
   void AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // IsValidXY
+  // IsValid
   void AGP__Inst_IsValidXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_IsValidID(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // AdjacentXY
+  // Adjacent
   void AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ValidMovesCnt
@@ -603,19 +602,19 @@ public:
   // GetBoardValue
   void AGP_Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP_Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // PlaceXY
+  // Place
   void AGP_Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP_Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // PlaceOppXY
+  // PlaceOpp
   void AGP_Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP_Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // FlipCntXY
+  // FlipCnt
   void AGP_Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP_Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // OppFlipCntXY
+  // OppFlipCnt
   void AGP_Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP_Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // FrontierCntXY
+  // FrontierCnt
   void AGP_Inst_FrontierCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP_Inst_FrontierCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ResetBoard
@@ -624,25 +623,27 @@ public:
   void AGP_Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
 
   // -- SignalGP Instructions --
-  // TODO: actual instruction implementations
   // Fork
   void SGP__Inst_Fork(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // BoardWidth
   void SGP_Inst_GetBoardWidth(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // EndTurn
   void SGP_Inst_EndTurn(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // SetMoveXY
+  // SetMove
   void SGP__Inst_SetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_SetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // GetMoveXY
+  // GetMove
   void SGP__Inst_GetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_GetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // AdjacentXY
+  // Adjacent
   void SGP__Inst_AdjacentXY(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_AdjacentID(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // IsValidXY
+  // IsValid
   void SGP__Inst_IsValidXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_IsValidID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  // IsValidOpp
+  void SGP__Inst_IsValidOppXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
+  void SGP__Inst_IsValidOppID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // ValidMovesCnt
   void SGP__Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // ValidOppMovesCnt
@@ -650,16 +651,16 @@ public:
   // GetBoardValue
   void SGP__Inst_GetBoardValueXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_GetBoardValueID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // PlaceXY
+  // Place
   void SGP__Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_PlaceDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // PlaceOppXY
+  // PlaceOpp
   void SGP__Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_PlaceOppDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // FlipCntXY
+  // FlipCnt
   void SGP__Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_FlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
-  // OppFlipCntXY
+  // OppFlipCnt
   void SGP__Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   void SGP__Inst_OppFlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
   // FrontierCnt
@@ -832,7 +833,7 @@ void LineageExp::SGP__Inst_SetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & i
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
-  const size_t move_y = (size_t)state.GetLocal(inst.args[0]);
+  const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
   const size_t move = dreamboard.GetPosID(move_x, move_y);
   hw.SetTrait(TRAIT_ID__MOVE, move);
 }
@@ -877,6 +878,27 @@ void LineageExp::SGP__Inst_IsValidID_HW(SGP__hardware_t & hw, const SGP__inst_t 
   const int valid = (int)dreamboard.IsMoveValid(playerID, move_id);
   state.SetLocal(inst.args[1], valid);
 }
+// SGP__Inst_IsValidOppXY
+void LineageExp::SGP__Inst_IsValidOppXY_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  const size_t move_x = state.GetLocal(inst.args[0]);
+  const size_t move_y = state.GetLocal(inst.args[1]);
+  const int valid = (int)dreamboard.IsMoveValid(oppID, move_x, move_y);
+  state.SetLocal(inst.args[2], valid);
+}
+// SGP__Inst_IsValidOppID
+void LineageExp::SGP__Inst_IsValidOppID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
+  SGP__state_t & state = hw.GetCurState();
+  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  const size_t move_id = state.GetLocal(inst.args[0]);
+  const int valid = (int)dreamboard.IsMoveValid(oppID, move_id);
+  state.SetLocal(inst.args[1], valid);
+}
 // SGP__Inst_AdjacentXY
 void LineageExp::SGP__Inst_AdjacentXY(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
@@ -900,7 +922,7 @@ void LineageExp::SGP__Inst_AdjacentID(SGP__hardware_t & hw, const SGP__inst_t & 
   const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
   const size_t dir     = emp::Mod((int)state.GetLocal(inst.args[2]), 8);
   const int nID        = dreamboard.GetNeighbor(move_id, dir);
-  state.SetLocal(inst.args[0], nID);
+  state.SetLocal(inst.args[0], (nID == -1) ? AGENT_VIEW__ILLEGAL_ID : nID);
 }
 // SGP_Inst_ValidMoveCnt_HW
 void LineageExp::SGP__Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
@@ -1143,6 +1165,12 @@ void LineageExp::ConfigSGP() {
                         3, "...");
   sgp_inst_lib->AddInst("IsValidID-HW",
                         [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidID_HW(hw, inst); },
+                        2, "...");
+  sgp_inst_lib->AddInst("IsValidOppXY-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidOppXY_HW(hw, inst); },
+                        3, "...");
+  sgp_inst_lib->AddInst("IsValidOppID-HW",
+                        [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_IsValidOppID_HW(hw, inst); },
                         2, "...");
   sgp_inst_lib->AddInst("AdjacentXY",
                         [this](SGP__hardware_t & hw, const SGP__inst_t & inst) { this->SGP__Inst_AdjacentXY(hw, inst); },
