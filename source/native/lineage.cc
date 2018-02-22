@@ -31,5 +31,5 @@ int main(int argc, char* argv[])
             << std::endl;
 
   LineageExp e(config);
-  // e.Run();
+  e.Run();
 }

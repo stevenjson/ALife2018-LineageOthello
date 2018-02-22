@@ -40,6 +40,9 @@ EMP_BUILD_CONFIG( LineageConfig,
   VALUE(FITNESS_INTERVAL, size_t, 100, "Interval to record fitness summary stats."),
   VALUE(POP_SNAPSHOT_INTERVAL, size_t, 100, "Interval to take a full snapshot of the population."),
   VALUE(DATA_DIRECTORY, std::string, "./", "Location to dump data output."),
+  GROUP(ANALYSIS_GROUP, "Analysis settings"),
+  VALUE(ANALYSIS_TYPE, size_t, 0, "Which analysis should we run?"),
+  VALUE(ANALYZE_PROGRAM_FPATH, std::string, "analyze.gp", "Which program should we analyze?")
 )
 
 #endif
