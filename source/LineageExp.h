@@ -581,47 +581,47 @@ public:
   // -- AvidaGP Instructions --
   // TODO (@steven) Actual implementation
   // BoardWidth
-  void AGP_Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // EndTurn
-  void AGP_Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // SetMoveXY
   void AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP__Inst_SetMoveID(SGP__hardware_t &hw, const SGP__inst_t &inst);
+  void AGP__Inst_SetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // GetMoveXY
   void AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // IsValidXY
-  void AGP__Inst_IsValidXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP__Inst_IsValidID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // AdjacentXY
   void AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ValidMovesCnt
-  void AGP_Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ValidOppMovesCnt
-  void AGP_Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // GetBoardValue
-  void AGP_Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // IsValidXY
+  void AGP__Inst_IsValidXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_IsValidID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // PlaceXY
-  void AGP_Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // PlaceOppXY
-  void AGP_Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // FlipCntXY
-  void AGP_Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // OppFlipCntXY
-  void AGP_Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // FrontierCntXY
-  void AGP_Inst_FrontierCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_FrontierCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // FlipCn_tXY
+  void AGP__Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // OppFli_pCntXY
+  void AGP__Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // FrontierCnt
+  void AGP__Inst_FrontierCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+
   // ResetBoard
-  void AGP_Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // IsOver
-  void AGP_Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
 
   // -- SignalGP Instructions --
   // TODO: actual instruction implementations
@@ -1359,9 +1359,6 @@ void LineageExp::ConfigSGP() {
       exit(-1);
   }
 
-
-
-
   // - Setup move evaluation signals/functors -
   // Setup begin_turn_signal action:
   //  - Reset the evaluation hardware. Give hardware accurate playerID, and update the dreamboard.
@@ -1374,6 +1371,344 @@ void LineageExp::ConfigSGP() {
     return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
   };
 
+}
+
+// AGP_Inst_GetBoardWidth
+void LineageExp::AGP__Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // state.SetLocal(inst.args[0], OTHELLO_BOARD_WIDTH);
+}
+// AGP_Inst_EndTurn
+void LineageExp::AGP__Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  hw.SetTrait(TRAIT_ID__DONE, 1);
+}
+// AGP__Inst_SetMoveXY
+void LineageExp::AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move_y = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move = dreamboard.GetPosID(move_x, move_y);
+  // hw.SetTrait(TRAIT_ID__MOVE, move);
+}
+// AGP__Inst_SetMoveID
+void LineageExp::AGP__Inst_SetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  // hw.SetTrait(TRAIT_ID__MOVE, move_id);
+}
+// AGP__Inst_GetMoveXY
+void LineageExp::AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
+  // const size_t move_x = dreamboard.GetPosX(move_id);
+  // const size_t move_y = dreamboard.GetPosY(move_id);
+  // state.SetLocal(inst.args[0], move_x);
+  // state.SetLocal(inst.args[1], move_y);
+}
+// AGP__Inst_GetMoveID
+void LineageExp::AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
+  // state.SetLocal(inst.args[0], move_id);
+}
+// AGP__Inst_IsValidXY
+void LineageExp::AGP__Inst_IsValidXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t move_x = state.GetLocal(inst.args[0]);
+  // const size_t move_y = state.GetLocal(inst.args[1]);
+  // const int valid = (int)dreamboard.IsMoveValid(playerID, move_x, move_y);
+  // state.SetLocal(inst.args[2], valid);
+}
+// AGP__Inst_IsValidID_HW
+void LineageExp::AGP__Inst_IsValidID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t move_id = state.GetLocal(inst.args[0]);
+  // const int valid = (int)dreamboard.IsMoveValid(playerID, move_id);
+  // state.SetLocal(inst.args[1], valid);
+}
+// AGP__Inst_AdjacentXY
+void LineageExp::AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  // const size_t dir = emp::Mod((int)state.GetLocal(inst.args[2]), 8);
+  // const int nID = dreamboard.GetNeighbor(move_x, move_y, dir);
+  // if (nID == -1)
+  // {
+  //   state.SetLocal(inst.args[0], AGENT_VIEW__ILLEGAL_ID);
+  //   state.SetLocal(inst.args[1], AGENT_VIEW__ILLEGAL_ID);
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[0], dreamboard.GetPosX(nID));
+  //   state.SetLocal(inst.args[1], dreamboard.GetPosY(nID));
+  // }
+}
+// AGP__Inst_AdjacentID
+void LineageExp::AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t dir = emp::Mod((int)state.GetLocal(inst.args[2]), 8);
+  // const int nID = dreamboard.GetNeighbor(move_id, dir);
+  // state.SetLocal(inst.args[0], nID);
+}
+// AGP_Inst_ValidMoveCnt_HW
+void LineageExp::AGP__Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // state.SetLocal(inst.args[0], dreamboard.GetMoveOptions(playerID).size());
+}
+// AGP_Inst_ValidOppMoveCnt_HW
+void LineageExp::AGP__Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // state.SetLocal(inst.args[0], dreamboard.GetMoveOptions(oppID).size());
+}
+// AGP_Inst_GetBoardValueXY_HW
+void LineageExp::AGP__Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = state.GetLocal(inst.args[0]);
+  // const size_t move_y = state.GetLocal(inst.args[1]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // // If inputs are garbage, let the caller know.
+  // if (dreamboard.IsValidPos(move_x, move_y))
+  // {
+  //   const size_t owner = dreamboard.GetPosOwner(move_x, move_y);
+  //   if (owner == playerID)
+  //   {
+  //     state.SetLocal(inst.args[2], AGENT_VIEW__SELF_ID);
+  //   }
+  //   else if (owner == oppID)
+  //   {
+  //     state.SetLocal(inst.args[2], AGENT_VIEW__OPP_ID);
+  //   }
+  //   else
+  //   {
+  //     state.SetLocal(inst.args[2], AGENT_VIEW__OPEN_ID);
+  //   }
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[2], AGENT_VIEW__ILLEGAL_ID);
+  // }
+}
+// AGP_Inst_GetBoardValueID_HW
+void LineageExp::AGP__Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = state.GetLocal(inst.args[0]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // // If inputs are garbage, let the caller know.
+  // if (dreamboard.IsValidPos(move_id))
+  // {
+  //   const size_t owner = dreamboard.GetPosOwner(move_id);
+  //   if (owner == playerID)
+  //   {
+  //     state.SetLocal(inst.args[1], AGENT_VIEW__SELF_ID);
+  //   }
+  //   else if (owner == oppID)
+  //   {
+  //     state.SetLocal(inst.args[1], AGENT_VIEW__OPP_ID);
+  //   }
+  //   else
+  //   {
+  //     state.SetLocal(inst.args[1], AGENT_VIEW__OPEN_ID);
+  //   }
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[1], AGENT_VIEW__ILLEGAL_ID);
+  // }
+}
+// AGP_Inst_PlaceDiskXY_HW
+void LineageExp::AGP__Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // if (dreamboard.IsMoveValid(playerID, move_x, move_y))
+  // {
+  //   dreamboard.DoMove(playerID, move_x, move_y);
+  //   state.SetLocal(inst.args[2], 1);
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[2], 0);
+  // }
+}
+// AGP_Inst_PlaceDiskID_HW
+void LineageExp::AGP__Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = state.GetLocal(inst.args[0]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // if (dreamboard.IsMoveValid(playerID, move_id))
+  // {
+  //   dreamboard.DoMove(playerID, move_id);
+  //   state.SetLocal(inst.args[1], 1);
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[1], 0);
+  // }
+}
+// AGP_Inst_PlaceOppDiskXY_HW
+void LineageExp::AGP__Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // if (dreamboard.IsMoveValid(oppID, move_x, move_y))
+  // {
+  //   dreamboard.DoMove(oppID, move_x, move_y);
+  //   state.SetLocal(inst.args[2], 1);
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[2], 0);
+  // }
+}
+// AGP_Inst_PlaceOppDiskID_HW
+void LineageExp::AGP__Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = state.GetLocal(inst.args[0]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // if (dreamboard.IsMoveValid(oppID, move_id))
+  // {
+  //   dreamboard.DoMove(oppID, move_id);
+  //   state.SetLocal(inst.args[1], 1);
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[1], 0);
+  // }
+}
+// AGP_Inst_FlipCntXY_HW
+void LineageExp::AGP__Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  // const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // if (dreamboard.IsMoveValid(playerID, move_id))
+  // {
+  //   state.SetLocal(inst.args[2], dreamboard.GetFlipList(playerID, move_id).size());
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[2], 0);
+  // }
+}
+// AGP_Inst_FlipCntID_HW
+void LineageExp::AGP__Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // if (dreamboard.IsMoveValid(playerID, move_id))
+  // {
+  //   state.SetLocal(inst.args[1], dreamboard.GetFlipList(playerID, move_id).size());
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[1], 0);
+  // }
+}
+// AGP_Inst_OppFlipCntXY_HW
+void LineageExp::AGP__Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  // const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // if (dreamboard.IsMoveValid(oppID, move_id))
+  // {
+  //   state.SetLocal(inst.args[2], dreamboard.GetFlipList(oppID, move_id).size());
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[2], 0);
+  // }
+}
+// AGP_Inst_OppFlipCntID_HW
+void LineageExp::AGP__Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // if (dreamboard.IsMoveValid(oppID, move_id))
+  // {
+  //   state.SetLocal(inst.args[1], dreamboard.GetFlipList(oppID, move_id).size());
+  // }
+  // else
+  // {
+  //   state.SetLocal(inst.args[1], 0);
+  // }
+}
+// AGP_Inst_FrontierCnt_HW
+void LineageExp::AGP__Inst_FrontierCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  // state.SetLocal(inst.args[0], dreamboard.GetFrontierPosCnt(playerID));
+}
+// AGP_Inst_ResetBoard_HW
+void LineageExp::AGP__Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // othello_dreamware->ResetActive(testcases[cur_testcase].GetInput().game);
+}
+// AGP_Inst_IsOver_HW
+void LineageExp::AGP__Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  // SGP__state_t &state = hw.GetCurState();
+  // emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  // state.SetLocal(inst.args[0], (int)dreamboard.IsOver());
 }
 
 void LineageExp::ConfigAGP() {
