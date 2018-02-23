@@ -15,6 +15,8 @@
 #include "control/Signal.h"
 #include "Evolve/World.h"
 #include "Evolve/Resource.h"
+#include "Evolve/SystematicsAnalysis.h"
+#include "Evolve/World_output.h"
 #include "games/Othello.h"
 #include "hardware/EventDrivenGP.h"
 #include "hardware/AvidaGP.h"
@@ -63,6 +65,34 @@ constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE = 0;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 
+
+template <typename WORLD_TYPE>
+emp::World_file AddDominantFile(WORLD_TYPE & world, const std::string & fpath){
+    auto & file = world.SetupFile(fpath);
+
+    std::function<size_t(void)> get_update = [&world](){return world.GetUpdate();};
+    std::function<int(void)> dom_mut_count = [&world](){
+      return emp::CountMuts(world.GetGenotypeAt(0));
+    };
+    std::function<int(void)> dom_del_step = [&world](){
+      return emp::CountDeleteriousSteps(world.GetGenotypeAt(0));
+    };
+    std::function<size_t(void)> dom_phen_vol = [&world](){
+      return emp::CountPhenotypeChanges(world.GetGenotypeAt(0));
+    };
+    std::function<size_t(void)> dom_unique_phen = [&world](){
+      return emp::CountUniquePhenotypes(world.GetGenotypeAt(0));
+    };
+
+    file.AddFun(get_update, "update", "Update");
+    file.AddFun(dom_mut_count, "dominant_mutation_count", "sum of mutations along dominant organism's lineage");
+    file.AddFun(dom_del_step, "dominant_deleterious_steps", "count of deleterious steps along dominant organism's lineage");
+    file.AddFun(dom_phen_vol, "dominant_phenotypic_volatility", "count of changes in phenotype along dominant organism's lineage");
+    file.AddFun(dom_unique_phen, "dominant_unique_phenotypes", "count of unique phenotypes along dominant organism's lineage");
+    file.PrintHeaderKeys();
+    return file;
+}
+
 class LineageExp {
 public:
   // @aliases
@@ -89,6 +119,7 @@ public:
     void SetID(size_t id) { agent_id = id; }
   };
 
+  /// SGP Target of evolution:
   struct SignalGPAgent : Agent {
     using Agent::agent_id;
     SGP__program_t program;
@@ -109,6 +140,7 @@ public:
 
   };
 
+  /// AGP target of evolution:
   struct AvidaGPAgent : Agent {
     using Agent::agent_id;
     AGP__program_t program;
@@ -140,8 +172,7 @@ public:
 
   struct TestcaseOutput {
     size_t expert_move;             ///< What move did the expert make on the associated testcase?
-    emp::vector<size_t> move_valid;
-    // emp::BitVector move_validity;   ///< BoardSize length bitvector describing what moves are valid on the associated testcase?
+    emp::vector<size_t> move_valid; ///< Is a given move valid (1) or not (0)?
   };
 
   // More aliases
@@ -150,6 +181,7 @@ public:
   using mut_count_t = std::unordered_map<std::string, int>;
   using SGP__world_t = emp::World<SignalGPAgent, data_t>;
   using AGP__world_t = emp::World<AvidaGPAgent, data_t>;
+  using SGP__genotype_t = SGP__world_t::genotype_t;
 
 protected:
   // == Configurable experiment parameters ==
@@ -204,27 +236,31 @@ protected:
   // Experiment variables.
   emp::Ptr<emp::Random> random;
 
-  size_t update;
-  size_t eval_time;
-  size_t OTHELLO_MAX_ROUND_CNT;
+  size_t update;                ///< Current update/generation.
+  size_t eval_time;             ///< Current evaluation time point (within an agent's turn).
+  size_t OTHELLO_MAX_ROUND_CNT; ///< What are the maximum number of rounds in game?
 
   // Testcases
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
   using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
-  size_t cur_testcase;
+  size_t cur_testcase;  ///< What's the current test case that *someone* is solving?
   // Fitness function sets.
   emp::vector<std::function<double(SignalGPAgent &)>> sgp_lexicase_fit_set; ///< Fit set for SGP lexicase selection.
   emp::vector<std::function<double(AvidaGPAgent &)>> agp_lexicase_fit_set;  ///< Fit set for AGP lexicase selection.
   emp::vector<std::function<double(SignalGPAgent &)>> sgp_resource_fit_set; ///< Fit set for SGP resource selection.
   emp::vector<std::function<double(AvidaGPAgent &)>> agp_resource_fit_set;  ///< Fit set for AGP resource selection.
 
-  // emp::BitVector testcase_eval_cache;
-  emp::vector<size_t> testcase_eval_cach;
-  emp::vector<double> testcase_score_cache;
-  emp::vector<double> agent_score_cache;
+  emp::vector<size_t> testcase_eval_cache;    ///< Place to store whether or not we've evaluated a particular testcase.
+  emp::vector<double> testcase_score_cache;   ///< Place to store testcase scores.
+  emp::vector<double> agent_score_cache;      ///< Place to store overall agent scores.
 
-  emp::vector<emp::vector<size_t>> testcases_by_phase;
-  emp::vector<emp::Resource> resources;
+  mut_count_t last_mutation;
+
+  emp::vector<emp::vector<size_t>> testcases_by_phase;  ///< Testcase IDs organized by game phase (the length of which is defined by RESOURCE_SELECT__GAME_PHASE_LEN)
+  emp::vector<emp::Resource> resources;                 ///< Resources for emp::ResourceSelect. One for each game phase.
+
+  emp::CollectionDataFile<std::unordered_set<emp::Ptr<SGP__genotype_t>, typename emp::Ptr<SGP__genotype_t>::hash_t>> sgp_muller_file;
+  // emp::CollectionDataFile<std::unordered_set<Ptr<SGP__genotype_t>, typename Ptr<SGP__genotype_t>::hash_t>> sgp_muller_file;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
@@ -239,43 +275,28 @@ protected:
   emp::Ptr<AGP__inst_lib_t> agp_inst_lib;   ///< AvidaGP instruction library.
   emp::Ptr<AGP__hardware_t> agp_eval_hw;    ///< Hardware used to evaluate AvidaGP programs during evolution/analysis.
 
-  // --- Experiment signals ---
-  // All of these are hardware-specific.
-  // - DoBeginRun: this is where you'll setup systematics, fitness file, etc. with the world.
-  emp::Signal<void(void)> do_begin_run_setup_sig; ///< Shared between AGP and SGP
-  emp::Signal<void(void)> do_pop_init_sig;
-  // - DoEvaluation: evaluate e'rybody!
-  emp::Signal<void(void)> do_evaluation_sig;
-  // - DoSelection: Do selection.
-  emp::Signal<void(void)> do_selection_sig;
-  // - DoUpdate: Responsible for calling world->Update()
-  emp::Signal<void(void)> do_world_update_sig;
-  // - DoAnalysis
-  emp::Signal<void(void)> do_analysis_sig;
-  // - Snapshot?
-  emp::Signal<void(size_t)> do_pop_snapshot_sig;
-
-  //
-  emp::Signal<void(mut_count_t)> on_mutate_sig;                        ///< Trigger signal before organism gives birth.
-  emp::Signal<void(size_t pos, double)> record_fit_sig;                ///< Trigger signal before organism gives birth.
+  // --- Signals and functors! ---
+  // Many of these are hardware-specific.
+  // Experiment running/setup signals.
+  emp::Signal<void(void)> do_begin_run_setup_sig;   ///< Triggered at begining of run. Shared between AGP and SGP
+  emp::Signal<void(void)> do_pop_init_sig;          ///< Triggered during run setup. Defines way population is initialized.
+  emp::Signal<void(void)> do_evaluation_sig;        ///< Triggered during run step. Should trigger population-wide agent evaluation.
+  emp::Signal<void(void)> do_selection_sig;         ///< Triggered during run step. Should trigger selection (which includes selection, reproduction, and mutation).
+  emp::Signal<void(void)> do_world_update_sig;      ///< Triggered during run step. Should trigger world->Update(), and whatever else should happen right before/after population turnover.
+  emp::Signal<void(void)> do_analysis_sig;          ///< Triggered if in analysis mode. Should trigger appropriate analyses.
+  // Systematics-specific signals.
+  emp::Signal<void(size_t)> do_pop_snapshot_sig;    ///< Triggered if we should take a snapshot of the population (as defined by POP_SNAPSHOT_INTERVAL). Should call appropriate functions to take snapshot.
+  emp::Signal<void(size_t pos, double)> record_fit_sig;        ///< Trigger signal before organism gives birth.
   emp::Signal<void(size_t pos, phenotype_t)> record_phen_sig;  ///< Trigger signal before organism gives birth.
+  // Agent evaluation signals.
+  emp::Signal<void(const emp::Othello &)> begin_turn_sig; ///< Called at beginning of agent turn during evaluation.
+  emp::Signal<void(void)> agent_advance_sig;              ///< Called during agent's turn. Should cause agent to advance by a single timestep.
 
-  // --- Agent evaluation signals ---
-  // othello_begin_turn
-  emp::Signal<void(const emp::Othello &)> begin_turn_sig;
-  emp::Signal<void(void)> agent_advance_sig;
+  std::function<size_t(void)> get_eval_agent_move;              ///< Should return eval_hardware's current move selection. Hardware-specific!
+  std::function<bool(void)> get_eval_agent_done;                ///< Should return whether or not eval_hardware is done. Hardware-specific!
+  std::function<size_t(void)> get_eval_agent_playerID;          ///< Should return eval_hardware's current playerID. Hardware-specific!
+  std::function<double(test_case_t &, size_t)> calc_test_score; ///< Given a test case and a move, what is the appropriate score? Shared between hardware types.
 
-  // Functors!
-  // - Get move
-  std::function<size_t(void)> get_eval_agent_move;              ///< Hardware-specific!
-  // - Get done
-  std::function<bool(void)> get_eval_agent_done;                ///< Hardware-specific!
-  // - Get player ID
-  std::function<size_t(void)> get_eval_agent_playerID;          ///< Hardware-specific!
-  // - Given player move and test case, calculate agent score.
-  std::function<double(test_case_t &, size_t)> calc_test_score; ///< Shared between hardware types.
-
-  // Protected functions.
   /// Evaluate GP move (hardware-agnostic).
   /// Requires that the following signals/functors be setup:
   ///  - begin_turn_sig
@@ -383,6 +404,7 @@ protected:
   size_t GetCacheID(size_t agentID, size_t testID) {
     return (agentID * testcases.GetSize()) + testID;
   }
+
   /// Run all tests on current eval hardware.
   void Evaluate(Agent & agent) {
     const size_t id = agent.GetID();
@@ -393,30 +415,32 @@ protected:
     }
     agent_score_cache[id] = score;
   }
+
   /// Run test return test score.
   double RunTest(size_t agentID, size_t testID) {
     const size_t cID = GetCacheID(agentID, testID);
     // If we haven't cached this test case yet, go ahead and calculate it.
-    if (!testcase_eval_cach[cID]) {
+    if (!testcase_eval_cache[cID]) {
       test_case_t & test = testcases[testID];
       size_t move = EvalMove__GP(test.GetInput().game, false);
       double score = calc_test_score(test, move);
-      testcase_eval_cach[cID] = 1;
+      testcase_eval_cache[cID] = 1;
       testcase_score_cache[cID] = score;
     }
     return testcase_score_cache[cID];
   }
+
   /// Clear cache.
   void ClearCache() {
-    for (size_t i = 0; i < testcase_eval_cach.size(); ++i) { testcase_eval_cach[i] = 0; }
+    for (size_t i = 0; i < testcase_eval_cache.size(); ++i) { testcase_eval_cache[i] = 0; }
   }
 
-
 public:
-  // @constructor
-  LineageExp(const LineageConfig & config)
-    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), testcases(), cur_testcase(0)
+  LineageExp(const LineageConfig & config)   // @constructor
+    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), testcases(), cur_testcase(0), last_mutation(),
+      sgp_muller_file(DATA_DIRECTORY + "muller_data.dat")
   {
+    // Localize configs.
     RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
     POP_SIZE = config.POP_SIZE();
@@ -461,13 +485,14 @@ public:
     // What is the maximum number of rounds for an othello game?
     OTHELLO_MAX_ROUND_CNT = (OTHELLO_BOARD_WIDTH * OTHELLO_BOARD_WIDTH) - 4;
 
+    last_mutation = {{"inst_substitutions", 0}, {"arg_substitutions", 0}, {"tag_bit_flips", 0}};
+
     // Load test cases.
     testcases.RegisterTestcaseReader([this](emp::vector<std::string> & strs) { return this->GenerateTestcase(strs); });
     testcases.LoadTestcases(TEST_CASE_FILE);
 
-
     // Setup testcase cache.
-    testcase_eval_cach.resize(POP_SIZE * testcases.GetSize(), 0);
+    testcase_eval_cache.resize(POP_SIZE * testcases.GetSize(), 0);
     testcase_score_cache.resize(POP_SIZE * testcases.GetSize(), 0.0);
     agent_score_cache.resize(POP_SIZE, 0.0);
 
@@ -570,12 +595,8 @@ public:
     sgp_event_lib.Delete();
     sgp_eval_hw.Delete();
     agp_eval_hw.Delete();
-
     // TODO: clean up whatever Avida-specific dynamically allocated memory we end up using.
   }
-
-  void ConfigSGP();
-  void ConfigAGP();
 
   void Run() {
     switch (RUN_MODE) {
@@ -596,17 +617,21 @@ public:
     }
   }
 
+  /// Do a single step of evolution.
   void RunStep() {
     do_evaluation_sig.Trigger();    // Update agent scores.
     do_selection_sig.Trigger();     // Do selection (selection, reproduction, mutation).
     do_world_update_sig.Trigger();  // Do world update (population turnover, clear score caches).
   }
 
-  // Fitness functions
-  // -- Also, probably want to cache this value as well.
+  // Fitness function(s)
   double CalcFitness(Agent & agent) {
     return agent_score_cache[agent.GetID()];
   }
+
+  // Config functions. These do all of the hardware-specific experiment setup/configuration.
+  void ConfigSGP();
+  void ConfigAGP();
 
   // Mutation functions
   size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd);
@@ -808,6 +833,10 @@ void LineageExp::SGP__Debugging_Analysis() {
 size_t LineageExp::SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd) {
   SGP__program_t & program = agent.GetGenome();
   size_t mut_cnt = 0;
+  last_mutation["inst_substitutions"] = 0;
+  last_mutation["arg_substitutions"] = 0;
+  last_mutation["tag_bit_flips"] = 0;
+  //TODO: incorporate last mutation into Mutate function
   // For each function:
   for (size_t fID = 0; fID < program.GetSize(); ++fID) {
     // Mutate affinity.
@@ -1154,6 +1183,7 @@ void LineageExp::ConfigSGP() {
   // NOTE: second argument specifies that we're not mutating the first thing int the pop (we're doing elite selection in all of our stuff).
   sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate(agent, rnd); }, 1);
   sgp_world->SetFitFun([this](SignalGPAgent & agent) { return this->CalcFitness(agent); });
+  sgp_world->OnGenotypeKnown([this](emp::Ptr<SGP__genotype_t> genotype, size_t pos) { genotype->GetData().RecordMutation(last_mutation); });
 
   // Configure the instruction set.
   // - Default instruction set.
@@ -1311,6 +1341,17 @@ void LineageExp::ConfigSGP() {
     sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
     auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
+
+    emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
+    // sgp_world->OnUpdate([this](size_t ud){ if (ud == 1) sgp_muller_file.Update(); });
+    // TODO: trigger these after evaluation!
+    // emp::Signal<void(size_t pos, double)> record_fit_sig;
+    record_fit_sig.AddAction([this](size_t pos, double fitness) { sgp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
+    // emp::Signal<void(size_t pos, phenotype_t)> record_phen_sig;
+    record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { sgp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
     do_pop_init_sig.Trigger();
   });
