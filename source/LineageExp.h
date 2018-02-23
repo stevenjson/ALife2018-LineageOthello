@@ -572,10 +572,11 @@ public:
 
   // Mutation functions
   size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd); // TODO
-  size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);  // TODO
+  size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);
 
   // Population snapshot functions
   void SGP_Snapshot_SingleFile(size_t update);
+  void AGP_Snapshot_SingleFile(size_t update);
 
   // SignalGP utility functions.
   void SGP__InitPopulation_Random();
@@ -585,12 +586,12 @@ public:
   //AvidaGP utility functions.
   void AGP__InitPopulation_Random();
   void AGP__InitPopulation_FromAncestorFile();
+  void AGP__ResetHW();
 
   // SignalGP Analysis functions.
   void SGP__Debugging_Analysis();
 
   // -- AvidaGP Instructions --
-  // TODO (@steven) Actual implementation
   // BoardWidth
   void AGP__Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // EndTurn
@@ -741,6 +742,44 @@ size_t LineageExp::AGP__Mutate(AvidaGPAgent &agent, emp::Random &rnd)
   }
 
   return mut_cnt;
+}
+
+void AGP__PrintGenome(std::ostream &os, LineageExp::AGP__program_t &genome)
+{
+  for (const LineageExp::AGP__inst_t & inst : genome.sequence) {
+    os << genome.inst_lib->GetName(inst.id);
+    const size_t num_args = genome.inst_lib->GetNumArgs(inst.id);
+    for (size_t i = 0; i < num_args; i++)
+    {
+      os << ' ' << inst.args[i];
+    }
+    os << '\n';
+  }
+}
+
+void LineageExp::AGP_Snapshot_SingleFile(size_t update)
+{
+  std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
+  mkdir(snapshot_dir.c_str(), ACCESSPERMS);
+  // For each program in the population, dump the full program description in a single file.
+  std::ofstream prog_ofstream(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".pop");
+  for (size_t i = 0; i < sgp_world->GetSize(); ++i)
+  {
+    if (i)
+      prog_ofstream << "===\n";
+    AvidaGPAgent &agent = agp_world->GetOrg(i);
+    AGP__PrintGenome(prog_ofstream, agent.GetGenome());
+  }
+  prog_ofstream.close();
+}
+
+void LineageExp::AGP__ResetHW()
+{
+  agp_eval_hw->ResetHardware();
+  agp_eval_hw->SetTrait(TRAIT_ID__MOVE, -1);
+  agp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
+  agp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
+  //agp_eval_hw->SpawnCore(0, main_in_mem, true);
 }
 
 // SignalGP Functions
@@ -1897,7 +1936,6 @@ void LineageExp::ConfigAGP() {
                         1, "...");
 
   agp_eval_hw = emp::NewPtr<AGP__hardware_t>(agp_inst_lib);
-  // TODO: whatever agp_eval_hw configs...
 
   // Setup triggers!
   // Configure initial run setup
@@ -1923,7 +1961,7 @@ void LineageExp::ConfigAGP() {
     double best_score = -32767;
     for (size_t id = 0; id < agp_world->GetSize(); ++id)
     {
-      std::cout << "Evaluating agent: " << id << std::endl;
+      //std::cout << "Evaluating agent: " << id << std::endl;
       // Evaluate agent given by id.
       AvidaGPAgent &our_hero = agp_world->GetOrg(id);
       our_hero.SetID(id);
@@ -1965,6 +2003,109 @@ void LineageExp::ConfigAGP() {
 
   // do_mutation
   do_mutation_sig.AddAction([this]() { agp_world->DoMutations(1); });
+
+  // do_pop_snapshot
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->AGP_Snapshot_SingleFile(update); });
+
+   // ANALYSIS_TYPE ANALYSIS_TYPE_ID__DEBUGGING
+  switch (RUN_MODE) {
+
+    case RUN_ID__EXP: {
+      // Setup run-mode agent advance signal response.
+      agent_advance_sig.AddAction([this]() {
+        agp_eval_hw->SingleProcess();
+      });
+      // Setup run-mode begin turn signal response.
+      begin_turn_sig.AddAction([this](const emp::Othello & game) {
+        const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+        AGP__ResetHW();
+        agp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
+        othello_dreamware->Reset(game);
+        othello_dreamware->SetActiveDream(0);
+        othello_dreamware->SetPlayerID(playerID);
+      });
+      // Setup non-verbose get move.
+      get_eval_agent_move = [this]() {
+        return (size_t)agp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+      };
+
+      break;
+    }
+
+    case RUN_ID__ANALYSIS: {
+      //switch (ANALYSIS_TYPE) {
+
+      //   case ANALYSIS_TYPE_ID__DEBUGGING: {
+      //     // Debugging analysis signal response.
+      //     do_analysis_sig.AddAction([this]() { this->SGP__Debugging_Analysis(); });
+      //     // Setup a verbose agent_advance_sig
+      //     agent_advance_sig.AddAction([this]() {
+      //       std::cout << "----- EVAL STEP: " << eval_time << " -----" << std::endl;
+      //       sgp_eval_hw->SingleProcess();
+      //       sgp_eval_hw->PrintState();
+      //       std::cout << "--- DREAMBOARD STATE ---" << std::endl;
+      //       othello_dreamware->GetActiveDreamOthello().Print();
+      //     });
+      //     // Setup a verbose begin_turn_sig response.
+      //     begin_turn_sig.AddAction([this](const emp::Othello & game) {
+      //       const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+      //       std::cout << "===============================================" << std::endl;
+      //       std::cout << "TEST CASE: " << cur_testcase << std::endl;
+      //       std::cout << "ID: " << testcases[cur_testcase].id << std::endl;
+      //       std::cout << " ----- Input ----- " << std::endl;
+      //       // Board
+      //       testcases[cur_testcase].GetInput().game.Print();
+      //       auto options = testcases[cur_testcase].GetInput().game.GetMoveOptions(testcases[cur_testcase].GetInput().playerID);
+      //       std::cout << "Board width: " << testcases[cur_testcase].GetInput().game.GetBoardWidth() << std::endl;
+      //       std::cout << "Round: " << testcases[cur_testcase].GetInput().round << std::endl;
+      //       std::cout << "PlayerID: " << testcases[cur_testcase].GetInput().playerID << std::endl;
+      //       std::cout << " ----- Output ----- " << std::endl;
+      //       std::cout << "Expert move: " << testcases[cur_testcase].GetOutput().expert_move << std::endl;
+      //       std::cout << "Board options: ";
+      //       for (size_t j = 0; j < options.size(); ++j) {
+      //         std::cout << " " << options[j];
+      //       } std::cout << std::endl;
+      //       std::cout << "Valid options: ";
+      //       for (size_t j = 0; j < testcases[cur_testcase].GetOutput().move_valid.size(); ++j) {
+      //         std::cout << " " << testcases[cur_testcase].GetOutput().move_valid[j];
+      //       } std::cout << std::endl;
+
+      //       SGP__ResetHW();
+      //       sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
+      //       othello_dreamware->Reset(game);
+      //       othello_dreamware->SetActiveDream(0);
+      //       othello_dreamware->SetPlayerID(playerID);
+      //     });
+
+      //     get_eval_agent_move = [this]() {
+      //       size_t move = (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+      //       std::cout << "SELECTED MOVE: " << move << std::endl;
+      //       return move;
+      //     };
+
+      //     break;
+      //   }
+      //   default:
+      //     std::cout << "Unrecognized analysis type. Exiting..." << std::endl;
+      //     exit(-1);
+      // }
+      // break;
+      std::cout << "Unimplemented analysis type. Exiting..." << std::endl;
+      exit(-1);
+    }
+
+    default:
+      std::cout << "Unrecognized run mode! Exiting..." << std::endl;
+      exit(-1);
+  }
+
+  get_eval_agent_done = [this]() {
+    return (bool)agp_eval_hw->GetTrait(TRAIT_ID__DONE);
+  };
+
+  get_eval_agent_playerID = [this]() {
+    return (size_t)agp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
+  };
 }
 
 #endif
