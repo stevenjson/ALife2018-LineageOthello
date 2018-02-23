@@ -1,6 +1,7 @@
 #ifndef LINEAGE_EXP_H
 #define LINEAGE_EXP_H
 
+// @includes
 #include <iostream>
 #include <string>
 #include <utility>
@@ -12,8 +13,8 @@
 #include "base/Ptr.h"
 #include "base/vector.h"
 #include "control/Signal.h"
-// #include "Evolve/World.h"
-#include "Evo/World.h"
+#include "Evolve/World.h"
+#include "Evolve/Resource.h"
 #include "games/Othello.h"
 #include "hardware/EventDrivenGP.h"
 #include "hardware/AvidaGP.h"
@@ -25,10 +26,12 @@
 #include "tools/math.h"
 #include "tools/string_utils.h"
 
+
 #include "TestcaseSet.h"
 #include "OthelloHW.h"
 #include "lineage-config.h"
 
+// @constants
 constexpr int TESTCASE_FILE__DARK_ID = 1;
 constexpr int TESTCASE_FILE__LIGHT_ID = -1;
 constexpr int TESTCASE_FILE__OPEN_ID = 0;
@@ -62,6 +65,7 @@ constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 
 class LineageExp {
 public:
+  // @aliases
   // SignalGP-specific type aliases:
   using SGP__hardware_t = emp::EventDrivenGP_AW<SGP__TAG_WIDTH>;
   using SGP__program_t = SGP__hardware_t::Program;
@@ -141,11 +145,15 @@ public:
   };
 
   // More aliases
-  using SGP__world_t = emp::World<SignalGPAgent>;
-  using AGP__world_t = emp::World<AvidaGPAgent>;
+  using phenotype_t = emp::vector<double>;
+  using data_t = emp::mut_landscape_info<phenotype_t>;
+  using mut_count_t = std::unordered_map<std::string, int>;
+  using SGP__world_t = emp::World<SignalGPAgent, data_t>;
+  using AGP__world_t = emp::World<AvidaGPAgent, data_t>;
 
 protected:
   // == Configurable experiment parameters ==
+  // @config_declarations
   // General parameters
   size_t RUN_MODE;
   int RANDOM_SEED;
@@ -159,6 +167,13 @@ protected:
   // Selection Group parameters
   size_t SELECTION_METHOD;
   size_t TOURNAMENT_SIZE;
+  double RESOURCE_SELECT__RES_AMOUNT;
+  double RESOURCE_SELECT__RES_INFLOW;
+  double RESOURCE_SELECT__OUTFLOW;
+  double RESOURCE_SELECT__FRAC;
+  double RESOURCE_SELECT__MAX_BONUS;
+  double RESOURCE_SELECT__COST;
+  size_t RESOURCE_SELECT__GAME_PHASE_LEN;
   // Scoring Group parameters
   double SCORE_MOVE__ILLEGAL_MOVE_VALUE;
   double SCORE_MOVE__LEGAL_MOVE_VALUE;
@@ -191,14 +206,25 @@ protected:
 
   size_t update;
   size_t eval_time;
+  size_t OTHELLO_MAX_ROUND_CNT;
 
+  // Testcases
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
   using test_case_t = typename TestcaseSet<TestcaseInput, TestcaseOutput>::test_case_t;
   size_t cur_testcase;
+  // Fitness function sets.
+  emp::vector<std::function<double(SignalGPAgent &)>> sgp_lexicase_fit_set; ///< Fit set for SGP lexicase selection.
+  emp::vector<std::function<double(AvidaGPAgent &)>> agp_lexicase_fit_set;  ///< Fit set for AGP lexicase selection.
+  emp::vector<std::function<double(SignalGPAgent &)>> sgp_resource_fit_set; ///< Fit set for SGP resource selection.
+  emp::vector<std::function<double(AvidaGPAgent &)>> agp_resource_fit_set;  ///< Fit set for AGP resource selection.
+
   // emp::BitVector testcase_eval_cache;
   emp::vector<size_t> testcase_eval_cach;
   emp::vector<double> testcase_score_cache;
   emp::vector<double> agent_score_cache;
+
+  emp::vector<emp::vector<size_t>> testcases_by_phase;
+  emp::vector<emp::Resource> resources;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
@@ -230,6 +256,11 @@ protected:
   emp::Signal<void(void)> do_analysis_sig;
   // - Snapshot?
   emp::Signal<void(size_t)> do_pop_snapshot_sig;
+
+  //
+  emp::Signal<void(mut_count_t)> on_mutate_sig;                        ///< Trigger signal before organism gives birth.
+  emp::Signal<void(size_t pos, double)> record_fit_sig;                ///< Trigger signal before organism gives birth.
+  emp::Signal<void(size_t pos, phenotype_t)> record_phen_sig;  ///< Trigger signal before organism gives birth.
 
   // --- Agent evaluation signals ---
   // othello_begin_turn
@@ -384,8 +415,9 @@ protected:
 
 
 public:
+  // @constructor
   LineageExp(const LineageConfig & config)
-    : update(0), eval_time(0), testcases(), cur_testcase(0)
+    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), testcases(), cur_testcase(0)
   {
     RUN_MODE = config.RUN_MODE();
     RANDOM_SEED = config.RANDOM_SEED();
@@ -398,6 +430,13 @@ public:
     POP_INITIALIZATION_METHOD = config.POP_INITIALIZATION_METHOD();
     SELECTION_METHOD = config.SELECTION_METHOD();
     TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
+    RESOURCE_SELECT__RES_AMOUNT = config.RESOURCE_SELECT__RES_AMOUNT();
+    RESOURCE_SELECT__RES_INFLOW = config.RESOURCE_SELECT__RES_INFLOW();
+    RESOURCE_SELECT__OUTFLOW = config.RESOURCE_SELECT__OUTFLOW();
+    RESOURCE_SELECT__FRAC = config.RESOURCE_SELECT__FRAC();
+    RESOURCE_SELECT__MAX_BONUS = config.RESOURCE_SELECT__MAX_BONUS();
+    RESOURCE_SELECT__COST = config.RESOURCE_SELECT__COST();
+    RESOURCE_SELECT__GAME_PHASE_LEN = config.RESOURCE_SELECT__GAME_PHASE_LEN();
     SCORE_MOVE__ILLEGAL_MOVE_VALUE = config.SCORE_MOVE__ILLEGAL_MOVE_VALUE();
     SCORE_MOVE__LEGAL_MOVE_VALUE = config.SCORE_MOVE__LEGAL_MOVE_VALUE();
     SCORE_MOVE__EXPERT_MOVE_VALUE = config.SCORE_MOVE__EXPERT_MOVE_VALUE();
@@ -421,27 +460,39 @@ public:
     // Make a random number generator.
     random = emp::NewPtr<emp::Random>(RANDOM_SEED);
 
+    // What is the maximum number of rounds for an othello game?
+    OTHELLO_MAX_ROUND_CNT = (OTHELLO_BOARD_WIDTH * OTHELLO_BOARD_WIDTH) - 4;
+
     // Load test cases.
     testcases.RegisterTestcaseReader([this](emp::vector<std::string> & strs) { return this->GenerateTestcase(strs); });
     testcases.LoadTestcases(TEST_CASE_FILE);
+
 
     // Setup testcase cache.
     testcase_eval_cach.resize(POP_SIZE * testcases.GetSize(), 0);
     testcase_score_cache.resize(POP_SIZE * testcases.GetSize(), 0.0);
     agent_score_cache.resize(POP_SIZE, 0.0);
-    // test for particular agent given by: (agentID * testcases.size()) + testcase ID
-    // Clear the cache on every world update.
 
-    do_begin_run_setup_sig.AddAction([this]() {
-      std::cout << "Doing initial run setup." << std::endl;
-      // Setup systematics/fitness tracking.
-      auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
-      sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
-      auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
-      fit_file.SetTimingRepeat(FITNESS_INTERVAL);
-      // 1) Generate the initial population.
-      do_pop_init_sig.Trigger();
-    });
+    // Organize testcase IDs into phases.
+    // - How many phases are we working with?
+    int bucket_cnt = std::ceil(((double)OTHELLO_MAX_ROUND_CNT)/((double)RESOURCE_SELECT__GAME_PHASE_LEN));
+    testcases_by_phase.resize(bucket_cnt);
+    // - What phase does each test case belong to?
+    for (size_t i = 0; i < testcases.GetSize(); ++i) {
+      size_t rd = testcases[i].GetInput().round;
+      size_t phase = emp::Min(rd/RESOURCE_SELECT__GAME_PHASE_LEN, testcases_by_phase.size() - 1);
+      testcases_by_phase[phase].emplace_back(i);
+    }
+    // Fill out resources.
+    for (size_t i = 0; i < bucket_cnt; ++i) {
+      resources.emplace_back(RESOURCE_SELECT__RES_AMOUNT, RESOURCE_SELECT__RES_INFLOW, RESOURCE_SELECT__OUTFLOW);
+    }
+
+    // Print out test case distribution.
+    std::cout << "Test case phase distribution (phase:size):";
+    for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
+      std::cout << " " << i << ":" << testcases_by_phase[i].size();
+    } std::cout << std::endl;
 
     // Given a test case and a move, how are we scoring an agent?
     calc_test_score = [this](test_case_t & test, size_t move) {
@@ -552,7 +603,7 @@ public:
     // <- Update org phenotypes in systematics
     do_selection_sig.Trigger();     // Do selection (selection, reproduction).
     do_world_update_sig.Trigger();  // Do world update (population turnover, clear score caches).
-    do_mutation_sig.Trigger();      // Do mutations (mutate everyone in the population).
+    // do_mutation_sig.Trigger();      // Do mutations (mutate everyone in the population).
     // <- Update org genotypes in systematics
   }
 
@@ -1106,8 +1157,9 @@ void LineageExp::ConfigSGP() {
   // Configure the world.
   sgp_world->Reset();
   sgp_world->SetWellMixed(true);
-  sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate(agent, rnd); });
-  sgp_world->SetFitFun([this](Agent & agent) { return this->CalcFitness(agent); });
+  // NOTE: second argument specifies that we're not mutating the first thing int the pop (we're doing elite selection in all of our stuff).
+  sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate(agent, rnd); }, 1);
+  sgp_world->SetFitFun([this](SignalGPAgent & agent) { return this->CalcFitness(agent); });
 
   // Configure the instruction set.
   // - Default instruction set.
@@ -1247,6 +1299,17 @@ void LineageExp::ConfigSGP() {
       exit(-1);
   }
 
+  do_begin_run_setup_sig.AddAction([this]() {
+    std::cout << "Doing initial run setup." << std::endl;
+    // Setup systematics/fitness tracking.
+    auto & sys_file = sgp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
+    sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
+    fit_file.SetTimingRepeat(FITNESS_INTERVAL);
+    // Generate the initial population.
+    do_pop_init_sig.Trigger();
+  });
+
   // - Configure evaluation
   do_evaluation_sig.AddAction([this]() {
     double best_score = -32767;
@@ -1271,14 +1334,42 @@ void LineageExp::ConfigSGP() {
         emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
       });
       break;
-    case SELECTION_METHOD_ID__LEXICASE:
-      std::cout << "Lexicase selection not setup yet..." << std::endl;
-      exit(-1);
+    case SELECTION_METHOD_ID__LEXICASE: {
+      sgp_lexicase_fit_set.resize(0);
+      for (size_t i = 0; i < testcases.GetSize(); ++i) {
+        sgp_lexicase_fit_set.push_back([i, this](SignalGPAgent & agent) {
+          return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+        });
+      }
+      do_selection_sig.AddAction([this]() {
+        emp::EliteSelect(*sgp_world, 1, 1);
+        emp::LexicaseSelect(*sgp_world, sgp_lexicase_fit_set, POP_SIZE - 1);
+      });
       break;
-    case SELECTION_METHOD_ID__ECOEA:
-      std::cout << "ECO-EA selection not setup yet..." << std::endl;
-      exit(-1);
+    }
+    case SELECTION_METHOD_ID__ECOEA: {
+      sgp_resource_fit_set.resize(0);
+      // Add a resource fit function for each game phase.
+      for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
+        sgp_resource_fit_set.push_back([i, this](SignalGPAgent & agent) {
+          double score = 0;
+          emp::vector<size_t> & phasecases = testcases_by_phase[i];
+          // Aggregate all relevant test scores.
+          for (size_t j = 0; j < phasecases.size(); ++j) {
+            score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+          }
+          return score;
+        });
+      }
+      // Setup the do selection signal action.
+      do_selection_sig.AddAction([this]() {
+        emp::EliteSelect(*sgp_world, 1, 1);
+        emp::ResourceSelect(*sgp_world, sgp_resource_fit_set, resources,
+                            TOURNAMENT_SIZE, POP_SIZE - 1, RESOURCE_SELECT__FRAC,
+                            RESOURCE_SELECT__MAX_BONUS, RESOURCE_SELECT__COST);
+      });
       break;
+    }
     case SELECTION_METHOD_ID__MAPELITES:
       std::cout << "Map-Elites selection not setup yet..." << std::endl;
       exit(-1);
