@@ -250,8 +250,6 @@ protected:
   emp::Signal<void(void)> do_selection_sig;
   // - DoUpdate: Responsible for calling world->Update()
   emp::Signal<void(void)> do_world_update_sig;
-  // - DoMutation:
-  emp::Signal<void(void)> do_mutation_sig;
   // - DoAnalysis
   emp::Signal<void(void)> do_analysis_sig;
   // - Snapshot?
@@ -600,11 +598,8 @@ public:
 
   void RunStep() {
     do_evaluation_sig.Trigger();    // Update agent scores.
-    // <- Update org phenotypes in systematics
-    do_selection_sig.Trigger();     // Do selection (selection, reproduction).
+    do_selection_sig.Trigger();     // Do selection (selection, reproduction, mutation).
     do_world_update_sig.Trigger();  // Do world update (population turnover, clear score caches).
-    // do_mutation_sig.Trigger();      // Do mutations (mutate everyone in the population).
-    // <- Update org genotypes in systematics
   }
 
   // Fitness functions
@@ -629,7 +624,6 @@ public:
   void SGP__Debugging_Analysis();
 
   // -- AvidaGP Instructions --
-  // TODO (@steven) Actual implementation
   // BoardWidth
   void AGP_Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // EndTurn
@@ -1281,6 +1275,17 @@ void LineageExp::ConfigSGP() {
   sgp_eval_hw->SetMaxCores(SGP_HW_MAX_CORES);
   sgp_eval_hw->SetMaxCallDepth(SGP_HW_MAX_CALL_DEPTH);
 
+  // - Setup move evaluation signals/functors -
+  // Setup begin_turn_signal action:
+  //  - Reset the evaluation hardware. Give hardware accurate playerID, and update the dreamboard.
+  get_eval_agent_done = [this]() {
+    return (bool)sgp_eval_hw->GetTrait(TRAIT_ID__DONE);
+  };
+
+  get_eval_agent_playerID = [this]() {
+    return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
+  };
+
   // Setup triggers!
   // Configure initial run setup
   switch (POP_INITIALIZATION_METHOD) {
@@ -1324,6 +1329,12 @@ void LineageExp::ConfigSGP() {
     }
     std::cout << "Update: " << update << " Max score: " << best_score << std::endl;
   });
+
+  // - Configure world upate.
+  do_world_update_sig.AddAction([this]() { sgp_world->Update(); this->ClearCache(); });
+
+  // do_pop_snapshot
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
 
   // - Configure selection
   // TODO: configure different based on selection method settings.
@@ -1379,18 +1390,8 @@ void LineageExp::ConfigSGP() {
       exit(-1);
   }
 
-  // - Configure world upate.
-  do_world_update_sig.AddAction([this]() { sgp_world->Update(); this->ClearCache(); });
-
-  // do_mutation
-  do_mutation_sig.AddAction([this]() { sgp_world->DoMutations(1); });
-
-  // do_pop_snapshot
-  do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
-
   // ANALYSIS_TYPE ANALYSIS_TYPE_ID__DEBUGGING
   switch (RUN_MODE) {
-
     case RUN_ID__EXP: {
       // Setup run-mode agent advance signal response.
       agent_advance_sig.AddAction([this]() {
@@ -1477,21 +1478,6 @@ void LineageExp::ConfigSGP() {
       std::cout << "Unrecognized run mode! Exiting..." << std::endl;
       exit(-1);
   }
-
-
-
-
-  // - Setup move evaluation signals/functors -
-  // Setup begin_turn_signal action:
-  //  - Reset the evaluation hardware. Give hardware accurate playerID, and update the dreamboard.
-
-  get_eval_agent_done = [this]() {
-    return (bool)sgp_eval_hw->GetTrait(TRAIT_ID__DONE);
-  };
-
-  get_eval_agent_playerID = [this]() {
-    return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
-  };
 
 }
 
