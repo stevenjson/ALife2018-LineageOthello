@@ -32,3 +32,11 @@
 *.exe
 *.out
 *.app
+lineage
+
+# Extensions
+*.cfg
+*.csv
+
+# Output
+pop_*/
