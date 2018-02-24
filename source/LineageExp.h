@@ -183,6 +183,7 @@ public:
   using SGP__world_t = emp::World<SignalGPAgent, data_t>;
   using AGP__world_t = emp::World<AvidaGPAgent, data_t>;
   using SGP__genotype_t = SGP__world_t::genotype_t;
+  using AGP__genotype_t = AGP__world_t::genotype_t;
 
 protected:
   // == Configurable experiment parameters ==
@@ -225,6 +226,10 @@ protected:
   int SGP_PROG_MAX_ARG_VAL;
   double SGP_PER_BIT__TAG_BFLIP_RATE;
   double SGP_PER_INST__SUB_RATE;
+  // AvidaGP Program group parameters
+  size_t AGP_GENOME_SIZE;
+  // AvidaGP Mutation Group parameters
+  double AGP_PER_INST__SUB_RATE;
   // Data Collection parameters
   size_t SYSTEMATICS_INTERVAL;
   size_t FITNESS_INTERVAL;
@@ -452,6 +457,7 @@ public:
     RANDOM_SEED = config.RANDOM_SEED();
     POP_SIZE = config.POP_SIZE();
     GENERATIONS = config.GENERATIONS();
+    AGP_GENOME_SIZE = config.AGP_GENOME_SIZE();
     EVAL_TIME = config.EVAL_TIME();
     REPRESENTATION = config.REPRESENTATION();
     TEST_CASE_FILE = config.TEST_CASE_FILE();
@@ -479,6 +485,7 @@ public:
     SGP_PROG_MAX_ARG_VAL = config.SGP_PROG_MAX_ARG_VAL();
     SGP_PER_BIT__TAG_BFLIP_RATE = config.SGP_PER_BIT__TAG_BFLIP_RATE();
     SGP_PER_INST__SUB_RATE = config.SGP_PER_INST__SUB_RATE();
+    AGP_PER_INST__SUB_RATE = config.AGP_PER_INST__SUB_RATE();
     SYSTEMATICS_INTERVAL = config.SYSTEMATICS_INTERVAL();
     FITNESS_INTERVAL = config.FITNESS_INTERVAL();
     POP_SNAPSHOT_INTERVAL = config.POP_SNAPSHOT_INTERVAL();
@@ -648,58 +655,66 @@ public:
 
   // Population snapshot functions
   void SGP_Snapshot_SingleFile(size_t update);
+  void AGP_Snapshot_SingleFile(size_t update);
 
   // SignalGP utility functions.
   void SGP__InitPopulation_Random();
   void SGP__InitPopulation_FromAncestorFile();
   void SGP__ResetHW(const SGP__memory_t & main_in_mem=SGP__memory_t());
 
+  //AvidaGP utility functions.
+  void AGP__InitPopulation_Random();
+  void AGP__InitPopulation_FromAncestorFile();
+  void AGP__ResetHW();
+
   // SignalGP Analysis functions.
   void SGP__Debugging_Analysis();
 
   // -- AvidaGP Instructions --
   // BoardWidth
-  void AGP_Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // EndTurn
-  void AGP_Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // SetMove
   void AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP__Inst_SetMoveID(AGP__hardware_t &hw, const SGP__inst_t &inst);
+  void AGP__Inst_SetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // GetMove
   void AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // IsValid
-  void AGP__Inst_IsValidXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP__Inst_IsValidID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // Adjacent
   void AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &inst);
   void AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ValidMovesCnt
-  void AGP_Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ValidOppMovesCnt
-  void AGP_Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // GetBoardValue
-  void AGP_Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // Place
-  void AGP_Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // PlaceOpp
-  void AGP_Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // FlipCnt
-  void AGP_Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  // OppFlipCnt
-  void AGP_Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // IsValidXY
+  void AGP__Inst_IsValidXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_IsValidID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // IsValidOpp
+  void AGP__Inst_IsValidOppXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_IsValidOppID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // PlaceXY
+  void AGP__Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // PlaceOppXY
+  void AGP__Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // FlipCn_tXY
+  void AGP__Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  // OppFli_pCntXY
+  void AGP__Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // FrontierCnt
-  void AGP_Inst_FrontierCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
-  void AGP_Inst_FrontierCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_FrontierCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // ResetBoard
-  void AGP_Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
   // IsOver
-  void AGP_Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
+  void AGP__Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst);
 
   // -- SignalGP Instructions --
   // Fork
@@ -750,6 +765,106 @@ public:
   void SGP__Inst_IsOver_HW(SGP__hardware_t & hw, const SGP__inst_t & inst);
 };
 
+// AvidaGP Functions
+void LineageExp::AGP__InitPopulation_Random()
+{
+  std::cout << "Initializing population randomly!" << std::endl;
+  for (size_t p = 0; p < POP_SIZE; ++p)
+  {
+    AGP__hardware_t cpu(agp_inst_lib);
+    cpu.PushRandom(*random, AGP_GENOME_SIZE);
+    agp_world->Inject(cpu.GetGenome(), 1);
+  }
+}
+
+void LineageExp::AGP__InitPopulation_FromAncestorFile()
+{
+  std::cout << "Initializing population from ancestor file!" << std::endl;
+  // Configure the ancestor program.
+  AGP__hardware_t ancestor_prog(agp_inst_lib);
+  std::ifstream ancestor_fstream(ANCESTOR_FPATH);
+  if (!ancestor_fstream.is_open())
+  {
+    std::cout << "Failed to open ancestor program file(" << ANCESTOR_FPATH << "). Exiting..." << std::endl;
+    exit(-1);
+  }
+  ancestor_prog.Load(ancestor_fstream);
+  std::cout << " --- Ancestor program: ---" << std::endl;
+  ancestor_prog.PrintGenome();
+  std::cout << " -------------------------" << std::endl;
+  agp_world->Inject(ancestor_prog.GetGenome(), 1); // Inject a bunch of ancestors into the population.
+}
+
+size_t LineageExp::AGP__Mutate(AvidaGPAgent &agent, emp::Random &rnd)
+{
+  AGP__program_t &program = agent.GetGenome();
+  size_t mut_cnt = 0;
+  for (size_t i = 0; i < MUTATION_TYPES.size(); ++i) {
+    last_mutation[MUTATION_TYPES[i]] = 0;
+  }
+  // Substitutions?
+  for (size_t i = 0; i < program.sequence.size(); ++i)
+  {
+    AGP__inst_t &inst = program.sequence[i];
+    // Mutate instruction.
+    if (rnd.P(AGP_PER_INST__SUB_RATE))
+    {
+      ++mut_cnt;
+      ++last_mutation["inst_substitutions"];
+      inst.id = rnd.GetUInt(program.inst_lib->GetSize());
+    }
+    // Mutate arguments (even if they aren't relevent to instruction).
+    for (size_t k = 0; k < AGP__hardware_t::INST_ARGS; ++k)
+    {
+      if (rnd.P(AGP_PER_INST__SUB_RATE))
+      {
+        ++mut_cnt;
+        ++last_mutation["arg_substitutions"];
+        inst.args[k] = rnd.GetInt(AGP__hardware_t::CPU_SIZE);
+      }
+    }
+  }
+
+  return mut_cnt;
+}
+
+void AGP__PrintGenome(std::ostream &os, LineageExp::AGP__program_t &genome)
+{
+  for (const LineageExp::AGP__inst_t & inst : genome.sequence) {
+    os << genome.inst_lib->GetName(inst.id);
+    const size_t num_args = genome.inst_lib->GetNumArgs(inst.id);
+    for (size_t i = 0; i < num_args; i++)
+    {
+      os << ' ' << inst.args[i];
+    }
+    os << '\n';
+  }
+}
+
+void LineageExp::AGP_Snapshot_SingleFile(size_t update)
+{
+  std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
+  mkdir(snapshot_dir.c_str(), ACCESSPERMS);
+  // For each program in the population, dump the full program description in a single file.
+  std::ofstream prog_ofstream(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".pop");
+  for (size_t i = 0; i < agp_world->GetSize(); ++i)
+  {
+    if (i)
+      prog_ofstream << "===\n";
+    AvidaGPAgent &agent = agp_world->GetOrg(i);
+    AGP__PrintGenome(prog_ofstream, agent.GetGenome());
+  }
+  prog_ofstream.close();
+}
+
+void LineageExp::AGP__ResetHW()
+{
+  agp_eval_hw->ResetHardware();
+  agp_eval_hw->SetTrait(TRAIT_ID__MOVE, -1);
+  agp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
+  agp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
+}
+
 // SignalGP Functions
 /// Reset the SignalGP evaluation hardware, setting input memory of
 /// main thread to be equal to main_in_mem.
@@ -795,7 +910,7 @@ void LineageExp::SGP__InitPopulation_FromAncestorFile() {
   std::cout << " --- Ancestor program: ---" << std::endl;
   ancestor_prog.PrintProgramFull();
   std::cout << " -------------------------" << std::endl;
-  sgp_world->Inject(ancestor_prog, POP_SIZE);    // Inject a bunch of ancestors into the population.
+  sgp_world->Inject(ancestor_prog, 1);    // Inject a bunch of ancestors into the population.
 }
 
 /// Analysis mode used for tracing program.
@@ -1536,10 +1651,350 @@ void LineageExp::ConfigSGP() {
 
 }
 
+// AGP_Inst_GetBoardWidth
+void LineageExp::AGP__Inst_GetBoardWidth(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  hw.regs[inst.args[0]] = OTHELLO_BOARD_WIDTH;
+}
+// AGP_Inst_EndTurn
+void LineageExp::AGP__Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  hw.SetTrait(TRAIT_ID__DONE, 1);
+}
+// AGP__Inst_SetMoveXY
+void LineageExp::AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = hw.regs[inst.args[0]];
+  const size_t move_y = hw.regs[inst.args[1]];
+  const size_t move = dreamboard.GetPosID(move_x, move_y);
+  hw.SetTrait(TRAIT_ID__MOVE, move);
+}
+// AGP__Inst_SetMoveID
+void LineageExp::AGP__Inst_SetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  const size_t move_id = hw.regs[inst.args[0]];
+  hw.SetTrait(TRAIT_ID__MOVE, move_id);
+}
+// AGP__Inst_GetMoveXY
+void LineageExp::AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
+  const size_t move_x = dreamboard.GetPosX(move_id);
+  const size_t move_y = dreamboard.GetPosY(move_id);
+  hw.regs[inst.args[0]] =  move_x;
+  hw.regs[inst.args[1]] =  move_y;
+}
+// AGP__Inst_GetMoveID
+void LineageExp::AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
+  hw.regs[inst.args[0]] =  move_id;
+}
+// AGP__Inst_IsValidXY
+void LineageExp::AGP__Inst_IsValidXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t move_x = hw.regs[inst.args[0]];
+  const size_t move_y = hw.regs[inst.args[1]];
+  const int valid = (int)dreamboard.IsMoveValid(playerID, move_x, move_y);
+  hw.regs[inst.args[2]] = valid;
+}
+// AGP__Inst_IsValidID_HW
+void LineageExp::AGP__Inst_IsValidID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t move_id = hw.regs[inst.args[0]];
+  const int valid = (int)dreamboard.IsMoveValid(playerID, move_id);
+  hw.regs[inst.args[1]] = valid;
+}
+// AGP__Inst_IsValidXY
+void LineageExp::AGP__Inst_IsValidOppXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = dreamboard.GetOpponentID(hw.GetTrait(TRAIT_ID__PLAYER_ID));
+  const size_t move_x = hw.regs[inst.args[0]];
+  const size_t move_y = hw.regs[inst.args[1]];
+  const int valid = (int)dreamboard.IsMoveValid(playerID, move_x, move_y);
+  hw.regs[inst.args[2]] = valid;
+}
+// AGP__Inst_IsValidID_HW
+void LineageExp::AGP__Inst_IsValidOppID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = dreamboard.GetOpponentID(hw.GetTrait(TRAIT_ID__PLAYER_ID));
+  const size_t move_id = hw.regs[inst.args[0]];
+  const int valid = (int)dreamboard.IsMoveValid(playerID, move_id);
+  hw.regs[inst.args[1]] = valid;
+}
+// AGP__Inst_AdjacentXY
+void LineageExp::AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = hw.regs[inst.args[0]];
+  const size_t move_y = hw.regs[inst.args[1]];
+  const size_t dir = emp::Mod((int)inst.args[2], 8);
+  const int nID = dreamboard.GetNeighbor(move_x, move_y, dir);
+  if (nID == -1)
+  {
+    hw.regs[inst.args[0]] = AGENT_VIEW__ILLEGAL_ID;
+    hw.regs[inst.args[1]] = AGENT_VIEW__ILLEGAL_ID;
+  }
+  else
+  {
+    hw.regs[inst.args[0]] = dreamboard.GetPosX(nID);
+    hw.regs[inst.args[1]] = dreamboard.GetPosY(nID);
+  }
+}
+// AGP__Inst_AdjacentID
+void LineageExp::AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = hw.regs[inst.args[0]];
+  const size_t dir = emp::Mod((int)hw.regs[inst.args[1]], 8);
+  const int nID = dreamboard.GetNeighbor(move_id, dir);
+  (nID == -1) ? hw.regs[inst.args[0]] = AGENT_VIEW__ILLEGAL_ID : hw.regs[inst.args[0]] = nID;
+}
+// AGP_Inst_ValidMoveCnt_HW
+void LineageExp::AGP__Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  hw.regs[inst.args[0]] = dreamboard.GetMoveOptions(playerID).size();
+}
+// AGP_Inst_ValidOppMoveCnt_HW
+void LineageExp::AGP__Inst_ValidOppMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  hw.regs[inst.args[0]] = dreamboard.GetMoveOptions(oppID).size();
+}
+// AGP_Inst_GetBoardValueXY_HW
+void LineageExp::AGP__Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = hw.regs[inst.args[0]];
+  const size_t move_y = hw.regs[inst.args[1]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // If inputs are garbage, let the caller know.
+  if (dreamboard.IsValidPos(move_x, move_y))
+  {
+    const size_t owner = dreamboard.GetPosOwner(move_x, move_y);
+    if (owner == playerID)
+    {
+      hw.regs[inst.args[2]] = AGENT_VIEW__SELF_ID;
+    }
+    else if (owner == oppID)
+    {
+      hw.regs[inst.args[2]] = AGENT_VIEW__OPP_ID;
+    }
+    else
+    {
+      hw.regs[inst.args[2]] = AGENT_VIEW__OPEN_ID;
+    }
+  }
+  else
+  {
+    hw.regs[inst.args[2]] = AGENT_VIEW__ILLEGAL_ID;
+  }
+}
+// AGP_Inst_GetBoardValueID_HW
+void LineageExp::AGP__Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = hw.regs[inst.args[0]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  // If inputs are garbage, let the caller know.
+  if (dreamboard.IsValidPos(move_id))
+  {
+    const size_t owner = dreamboard.GetPosOwner(move_id);
+    if (owner == playerID)
+    {
+      hw.regs[inst.args[1]] = AGENT_VIEW__SELF_ID;
+    }
+    else if (owner == oppID)
+    {
+      hw.regs[inst.args[1]] = AGENT_VIEW__OPP_ID;
+    }
+    else
+    {
+      hw.regs[inst.args[1]] = AGENT_VIEW__OPEN_ID;
+    }
+  }
+  else
+  {
+    hw.regs[inst.args[1]] = AGENT_VIEW__ILLEGAL_ID;
+  }
+}
+// AGP_Inst_PlaceDiskXY_HW
+void LineageExp::AGP__Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)hw.regs[inst.args[0]];
+  const size_t move_y = (size_t)hw.regs[inst.args[1]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_x, move_y))
+  {
+    dreamboard.DoMove(playerID, move_x, move_y);
+    hw.regs[inst.args[2]] = 1;
+  }
+  else
+  {
+    hw.regs[inst.args[2]] = 0;
+  }
+}
+// AGP_Inst_PlaceDiskID_HW
+void LineageExp::AGP__Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = hw.regs[inst.args[0]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_id))
+  {
+    dreamboard.DoMove(playerID, move_id);
+    hw.regs[inst.args[1]] = 1;
+  }
+  else
+  {
+    hw.regs[inst.args[1]] = 0;
+  }
+}
+// AGP_Inst_PlaceOppDiskXY_HW
+void LineageExp::AGP__Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)hw.regs[inst.args[0]];
+  const size_t move_y = (size_t)hw.regs[inst.args[1]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_x, move_y))
+  {
+    dreamboard.DoMove(oppID, move_x, move_y);
+    hw.regs[inst.args[2]] = 1;
+  }
+  else
+  {
+    hw.regs[inst.args[2]] = 0;
+  }
+}
+// AGP_Inst_PlaceOppDiskID_HW
+void LineageExp::AGP__Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = (size_t)hw.regs[inst.args[0]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_id))
+  {
+    dreamboard.DoMove(oppID, move_id);
+    hw.regs[inst.args[1]] = 1;
+  }
+  else
+  {
+    hw.regs[inst.args[1]] = 0;
+  }
+}
+// AGP_Inst_FlipCntXY_HW
+void LineageExp::AGP__Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)hw.regs[inst.args[0]];
+  const size_t move_y = (size_t)hw.regs[inst.args[1]];
+  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_id))
+  {
+    hw.regs[inst.args[2]] = dreamboard.GetFlipList(playerID, move_id).size();
+  }
+  else
+  {
+    hw.regs[inst.args[2]] = 0;
+  }
+}
+// AGP_Inst_FlipCntID_HW
+void LineageExp::AGP__Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = (size_t)hw.regs[inst.args[0]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  if (dreamboard.IsMoveValid(playerID, move_id))
+  {
+    hw.regs[inst.args[1]] = dreamboard.GetFlipList(playerID, move_id).size();
+  }
+  else
+  {
+    hw.regs[inst.args[1]] = 0;
+  }
+}
+// AGP_Inst_OppFlipCntXY_HW
+void LineageExp::AGP__Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_x = (size_t)hw.regs[inst.args[0]];
+  const size_t move_y = (size_t)hw.regs[inst.args[1]];
+  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_id))
+  {
+    hw.regs[inst.args[2]] = dreamboard.GetFlipList(oppID, move_id).size();
+  }
+  else
+  {
+    hw.regs[inst.args[2]] = 0;
+  }
+}
+// AGP_Inst_OppFlipCntID_HW
+void LineageExp::AGP__Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t move_id = (size_t)hw.regs[inst.args[0]];
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  const size_t oppID = dreamboard.GetOpponentID(playerID);
+  if (dreamboard.IsMoveValid(oppID, move_id))
+  {
+    hw.regs[inst.args[1]] = dreamboard.GetFlipList(oppID, move_id).size();
+  }
+  else
+  {
+    hw.regs[inst.args[1]] = 0;
+  }
+}
+// AGP_Inst_FrontierCnt_HW
+void LineageExp::AGP__Inst_FrontierCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  const size_t playerID = hw.GetTrait(TRAIT_ID__PLAYER_ID);
+  hw.regs[inst.args[0]] = dreamboard.GetFrontierPosCnt(playerID);
+}
+// AGP_Inst_ResetBoard_HW
+void LineageExp::AGP__Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  othello_dreamware->ResetActive(testcases[cur_testcase].GetInput().game);
+}
+// AGP_Inst_IsOver_HW
+void LineageExp::AGP__Inst_IsOver_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
+{
+  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
+  hw.regs[inst.args[0]] = (int)dreamboard.IsOver();
+}
+
+
 void LineageExp::ConfigAGP() {
-  // TODO (@steven)
   agp_world->Reset();
   agp_world->SetWellMixed(true);
+  // NOTE: second argument specifies that we're not mutating the first thing in the pop (we're doing elite selection in all of our stuff).
+  agp_world->SetMutFun([this](AvidaGPAgent &agent, emp::Random &rnd) { return this->AGP__Mutate(agent, rnd); }, 1);
+  agp_world->SetFitFun([this](Agent &agent) { return this->CalcFitness(agent); });
+  agp_world->OnGenotypeKnown([this](emp::Ptr<AGP__genotype_t> genotype, size_t pos) {
+    genotype->GetData().RecordMutation(last_mutation);
+  });
 
   agp_inst_lib->AddInst("Dec", AGP__inst_lib_t::Inst_Dec, 1, "Decrement value in reg Arg1");
   agp_inst_lib->AddInst("Not", AGP__inst_lib_t::Inst_Not, 1, "Logically toggle value in reg Arg1");
@@ -1566,91 +2021,249 @@ void LineageExp::ConfigAGP() {
   agp_inst_lib->AddInst("Output", AGP__inst_lib_t::Inst_Output, 2, "Push reg Arg1 into output Arg2");
   agp_inst_lib->AddInst("CopyVal", AGP__inst_lib_t::Inst_CopyVal, 2, "Copy reg Arg1 into reg Arg2");
   agp_inst_lib->AddInst("ScopeReg", AGP__inst_lib_t::Inst_ScopeReg, 1, "Backup reg Arg1; restore at end of scope");
+  agp_inst_lib->AddInst("Nop", [](AGP__hardware_t & hw, const AGP__inst_t & inst){ ; }, 0, "No operation.");
 
   // - Non-default instruction set.
-  // TODO (@steven): Fill out instruction descriptions.
-  // agp_inst_lib->AddInst("GetBoardWidth",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_GetBoardWidth(hw, inst); },
-  //                       1, "...");
-  // agp_inst_lib->AddInst("EndTurn",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_EndTurn(hw, inst); },
-  //                       0, "...");
-  // agp_inst_lib->AddInst("SetMoveXY",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_SetMoveXY(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("SetMoveID",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_SetMoveID(hw, inst); },
-  //                       1, "...");
-  // agp_inst_lib->AddInst("GetMoveXY",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetMoveXY(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("GetMoveID",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetMoveID(hw, inst); },
-  //                       1, "...");
-  // agp_inst_lib->AddInst("IsValidXY",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsValidXY(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("IsValidID",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsValidID(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("AdjacentXY",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_AdjacentXY(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("AdjacentID",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_AdjacentID(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("ValidMoveCnt-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_ValidMoveCnt_HW(hw, inst); },
-  //                       1, "...");
-  // agp_inst_lib->AddInst("ValidOppMoveCnt-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_ValidOppMoveCnt_HW(hw, inst); },
-  //                       1, "...");
-  // agp_inst_lib->AddInst("GetBoardValueXY-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_GetBoardValueXY_HW(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("GetBoardValueID-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_GetBoardValueID_HW(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("PlaceDiskXY-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceDiskXY_HW(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("PlaceDiskID-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceDiskID_HW(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("PlaceOppDiskXY-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceOppDiskXY_HW(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("PlaceOppDiskID-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_PlaceOppDiskID_HW(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("FlipCntXY-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FlipCntXY_HW(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("FlipCntID-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FlipCntID_HW(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("OppFlipCntXY-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_OppFlipCntXY_HW(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("OppFlipCntID-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_OppFlipCntID_HW(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("FrontierCntXY-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FrontierCntXY_HW(hw, inst); },
-  //                       3, "...");
-  // agp_inst_lib->AddInst("FrontierCntID-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_FrontierCntID_HW(hw, inst); },
-  //                       2, "...");
-  // agp_inst_lib->AddInst("ResetBoard-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_ResetBoard_HW(hw, inst); },
-  //                       0, "...");
-  // agp_inst_lib->AddInst("IsOver-HW",
-  //                       [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP_Inst_IsOver_HW(hw, inst); },
-  //                       1, "...");
+  agp_inst_lib->AddInst("GetBoardWidth",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetBoardWidth(hw, inst); },
+                        1, "...");
+  agp_inst_lib->AddInst("EndTurn",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_EndTurn(hw, inst); },
+                        0, "...");
+  agp_inst_lib->AddInst("SetMoveXY",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_SetMoveXY(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("SetMoveID",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_SetMoveID(hw, inst); },
+                        1, "...");
+  agp_inst_lib->AddInst("GetMoveXY",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetMoveXY(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("GetMoveID",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetMoveID(hw, inst); },
+                        1, "...");
+  agp_inst_lib->AddInst("IsValidOppXY-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsValidOppXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("IsValidOppID-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsValidOppID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("IsValidXY-HW",
+                        [this](AGP__hardware_t &hw, const AGP__inst_t &inst) { this->AGP__Inst_IsValidXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("IsValidID-HW",
+                        [this](AGP__hardware_t &hw, const AGP__inst_t &inst) { this->AGP__Inst_IsValidID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("AdjacentXY",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_AdjacentXY(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("AdjacentID",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_AdjacentID(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("ValidMoveCnt-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_ValidMoveCnt_HW(hw, inst); },
+                        1, "...");
+  agp_inst_lib->AddInst("ValidOppMoveCnt-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_ValidOppMoveCnt_HW(hw, inst); },
+                        1, "...");
+  agp_inst_lib->AddInst("GetBoardValueXY-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetBoardValueXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("GetBoardValueID-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_GetBoardValueID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("PlaceDiskXY-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_PlaceDiskXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("PlaceDiskID-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_PlaceDiskID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("PlaceOppDiskXY-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_PlaceOppDiskXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("PlaceOppDiskID-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_PlaceOppDiskID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("FlipCntXY-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_FlipCntXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("FlipCntID-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_FlipCntID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("OppFlipCntXY-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_OppFlipCntXY_HW(hw, inst); },
+                        3, "...");
+  agp_inst_lib->AddInst("OppFlipCntID-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_OppFlipCntID_HW(hw, inst); },
+                        2, "...");
+  agp_inst_lib->AddInst("FrontierCnt-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_FrontierCnt_HW(hw, inst); },
+                        1, "...");
+  agp_inst_lib->AddInst("ResetBoard-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_ResetBoard_HW(hw, inst); },
+                        0, "...");
+  agp_inst_lib->AddInst("IsOver-HW",
+                        [this](AGP__hardware_t & hw, const AGP__inst_t & inst) { this->AGP__Inst_IsOver_HW(hw, inst); },
+                        1, "...");
 
   agp_eval_hw = emp::NewPtr<AGP__hardware_t>(agp_inst_lib);
-  // TODO: whatever agp_eval_hw configs...
 
+  // Setup triggers!
+  // Configure initial run setup
+  switch (POP_INITIALIZATION_METHOD)
+  {
+  case POP_INITIALIZATION_METHOD_ID__RANDOM_POP:
+    do_pop_init_sig.AddAction([this]() {
+      this->AGP__InitPopulation_Random();
+    });
+    break;
+  case POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE:
+    do_pop_init_sig.AddAction([this]() {
+      this->AGP__InitPopulation_FromAncestorFile();
+    });
+    break;
+  default:
+    std::cout << "Unrecognized population initialization method! Exiting..." << std::endl;
+    exit(-1);
+  }
+
+  do_begin_run_setup_sig.AddAction([this]() {
+    std::cout << "Doing initial run setup." << std::endl;
+    // Setup systematics/fitness tracking.
+    auto & sys_file = agp_world->SetupSystematicsFile(DATA_DIRECTORY + "systematics.csv");
+    sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    auto & fit_file = agp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
+    fit_file.SetTimingRepeat(FITNESS_INTERVAL);
+
+    emp::AddPhylodiversityFile(*agp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    // emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
+    // sgp_world->OnUpdate([this](size_t ud){ if (ud == 1) sgp_muller_file.Update(); });
+    record_fit_sig.AddAction([this](size_t pos, double fitness) { agp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
+    record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { agp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
+    // Generate the initial population.
+    do_pop_init_sig.Trigger();
+  });
+
+  // - Configure evaluation
+  do_evaluation_sig.AddAction([this]() {
+    double best_score = -32767;
+    for (size_t id = 0; id < agp_world->GetSize(); ++id)
+    {
+      //std::cout << "Evaluating agent: " << id << std::endl;
+      // Evaluate agent given by id.
+      AvidaGPAgent &our_hero = agp_world->GetOrg(id);
+      our_hero.SetID(id);
+      agp_eval_hw->SetGenome(our_hero.GetGenome());
+      this->Evaluate(our_hero);
+      if (agent_score_cache[id] > best_score)
+        best_score = agent_score_cache[id];
+    }
+    std::cout << "Update: " << update << " Max score: " << best_score << std::endl;
+  });
+
+  switch (SELECTION_METHOD)
+  {
+  case SELECTION_METHOD_ID__TOURNAMENT:
+    do_selection_sig.AddAction([this]() {
+      emp::EliteSelect(*agp_world, 1, 1);
+      emp::TournamentSelect(*agp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
+    });
+    break;
+  case SELECTION_METHOD_ID__LEXICASE: {
+    agp_lexicase_fit_set.resize(0);
+    for (size_t i = 0; i < testcases.GetSize(); ++i) {
+      agp_lexicase_fit_set.push_back([i, this](AvidaGPAgent & agent) {
+        return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+      });
+    }
+    do_selection_sig.AddAction([this]() {
+      emp::EliteSelect(*agp_world, 1, 1);
+      emp::LexicaseSelect(*agp_world, agp_lexicase_fit_set, POP_SIZE - 1);
+    });
+    break;
+  }
+  case SELECTION_METHOD_ID__ECOEA: {
+    agp_resource_fit_set.resize(0);
+    // Add a resource fit function for each game phase.
+    for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
+      agp_resource_fit_set.push_back([i, this](AvidaGPAgent & agent) {
+        double score = 0;
+        emp::vector<size_t> & phasecases = testcases_by_phase[i];
+        // Aggregate all relevant test scores.
+        for (size_t j = 0; j < phasecases.size(); ++j) {
+          score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+        }
+        return score;
+      });
+    }
+    // Setup the do selection signal action.
+    do_selection_sig.AddAction([this]() {
+      emp::EliteSelect(*agp_world, 1, 1);
+      emp::ResourceSelect(*agp_world, agp_resource_fit_set, resources,
+                          TOURNAMENT_SIZE, POP_SIZE - 1, RESOURCE_SELECT__FRAC,
+                          RESOURCE_SELECT__MAX_BONUS, RESOURCE_SELECT__COST);
+    });
+    break;
+  }
+  case SELECTION_METHOD_ID__MAPELITES:
+    std::cout << "Map-Elites selection not setup yet..." << std::endl;
+    exit(-1);
+    break;
+  default:
+    std::cout << "Unrecognized selection method! Exiting..." << std::endl;
+    exit(-1);
+  }
+
+  // - Configure world upate.
+  do_world_update_sig.AddAction([this]() { agp_world->Update(); this->ClearCache(); });
+
+  // do_pop_snapshot
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->AGP_Snapshot_SingleFile(update); });
+
+   // ANALYSIS_TYPE ANALYSIS_TYPE_ID__DEBUGGING
+  switch (RUN_MODE) {
+
+    case RUN_ID__EXP: {
+      // Setup run-mode agent advance signal response.
+      agent_advance_sig.AddAction([this]() {
+        agp_eval_hw->SingleProcess();
+      });
+      // Setup run-mode begin turn signal response.
+      begin_turn_sig.AddAction([this](const emp::Othello & game) {
+        const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+        AGP__ResetHW();
+        agp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
+        othello_dreamware->Reset(game);
+        othello_dreamware->SetActiveDream(0);
+        othello_dreamware->SetPlayerID(playerID);
+      });
+      // Setup non-verbose get move.
+      get_eval_agent_move = [this]() {
+        return (size_t)agp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+      };
+
+      break;
+    }
+
+    case RUN_ID__ANALYSIS: {
+      std::cout << "Unimplemented analysis type. Exiting..." << std::endl;
+      exit(-1);
+    }
+
+    default:
+      std::cout << "Unrecognized run mode! Exiting..." << std::endl;
+      exit(-1);
+  }
+
+  get_eval_agent_done = [this]() {
+    return (bool)agp_eval_hw->GetTrait(TRAIT_ID__DONE);
+  };
+
+  get_eval_agent_playerID = [this]() {
+    return (size_t)agp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
+  };
 }
 
 #endif
