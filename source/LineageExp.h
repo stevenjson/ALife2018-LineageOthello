@@ -67,6 +67,7 @@ constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips"};
 
 /// Setup a data_file with world that records information about the dominant genotype.
+// TODO: update this function
 template <typename WORLD_TYPE>
 emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath){
     auto & file = world.SetupFile(fpath);
@@ -266,7 +267,7 @@ protected:
   emp::vector<emp::Resource> resources;                 ///< Resources for emp::ResourceSelect. One for each game phase.
 
   emp::CollectionDataFile<std::unordered_set<emp::Ptr<SGP__genotype_t>, typename emp::Ptr<SGP__genotype_t>::hash_t>*> sgp_muller_file;
-  // emp::CollectionDataFile<std::unordered_set<Ptr<SGP__genotype_t>, typename Ptr<SGP__genotype_t>::hash_t>> sgp_muller_file;
+  emp::CollectionDataFile<std::unordered_set<emp::Ptr<AGP__genotype_t>, typename emp::Ptr<AGP__genotype_t>::hash_t>*> agp_muller_file;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
@@ -450,7 +451,8 @@ protected:
 public:
   LineageExp(const LineageConfig & config)   // @constructor
     : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), testcases(), cur_testcase(0), last_mutation(),
-      sgp_muller_file(DATA_DIRECTORY + "muller_data.dat")
+      sgp_muller_file(DATA_DIRECTORY + "muller_data.dat"),
+      agp_muller_file(DATA_DIRECTORY + "muller_data.dat")
   {
     // Localize configs.
     RUN_MODE = config.RUN_MODE();
@@ -611,7 +613,6 @@ public:
     sgp_event_lib.Delete();
     sgp_eval_hw.Delete();
     agp_eval_hw.Delete();
-    // TODO: clean up whatever Avida-specific dynamically allocated memory we end up using.
   }
 
   void Run() {
@@ -1474,7 +1475,6 @@ void LineageExp::ConfigSGP() {
     sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
     auto & fit_file = sgp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
-
     emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
@@ -2136,10 +2136,10 @@ void LineageExp::ConfigAGP() {
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
 
     emp::AddPhylodiversityFile(*agp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    emp::AddLineageMutationFile(*agp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
-    // sgp_world->OnUpdate([this](size_t ud){ if (ud == 1) sgp_muller_file.Update(); });
+    agp_muller_file = emp::AddMullerPlotFile(*agp_world, DATA_DIRECTORY + "muller_data.dat");
+    agp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) agp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { agp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
     record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { agp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
