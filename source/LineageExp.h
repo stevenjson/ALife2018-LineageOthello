@@ -67,16 +67,19 @@ constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips"};
 
 /// Setup a data_file with world that records information about the dominant genotype.
-// TODO: update this function
 template <typename WORLD_TYPE>
 emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath="dominant.csv", emp::vector<std::string> mut_types = {"substitution"}){
     auto & file = world.SetupFile(fpath);
 
     std::function<size_t(void)> get_update = [&world](){return world.GetUpdate();};
-    // TODO : make vector of mut counts.
-    std::function<int(void)> dom_mut_count = [&world](){
-      return emp::CountMuts(world.GetGenotypeAt(0));
-    };
+    file.AddFun(get_update, "update", "Update");
+
+    // Add file field for each mutation type.
+    for (size_t i = 0; i < mut_types.size(); ++i) {
+      std::string mut_type = mut_types[i];
+      std::function<int(void)> mut_fun = [&world, mut_type]() { return emp::CountMuts(world.GetGenotypeAt(0), mut_type); };
+      file.AddFun(mut_fun, "dominant_"+mut_type+"_mutation_count", "sum of "+mut_type+" mutations along dominant organism's lineage");
+    }
 
     std::function<int(void)> dom_del_step = [&world](){
       return emp::CountDeleteriousSteps(world.GetGenotypeAt(0));
@@ -88,8 +91,7 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
       return emp::CountUniquePhenotypes(world.GetGenotypeAt(0));
     };
 
-    file.AddFun(get_update, "update", "Update");
-    file.AddFun(dom_mut_count, "dominant_mutation_count", "sum of mutations along dominant organism's lineage");
+    // file.AddFun(dom_mut_count, "dominant_mutation_count", "sum of mutations along dominant organism's lineage");
     file.AddFun(dom_del_step, "dominant_deleterious_steps", "count of deleterious steps along dominant organism's lineage");
     file.AddFun(dom_phen_vol, "dominant_phenotypic_volatility", "count of changes in phenotype along dominant organism's lineage");
     file.AddFun(dom_unique_phen, "dominant_unique_phenotypes", "count of unique phenotypes along dominant organism's lineage");
@@ -1192,7 +1194,7 @@ void LineageExp::ConfigSGP() {
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
     emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
     sgp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) sgp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { sgp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
@@ -1517,7 +1519,7 @@ void LineageExp::ConfigAGP() {
 
     emp::AddPhylodiversityFile(*agp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     emp::AddLineageMutationFile(*agp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    AddDominantFile(*agp_world, DATA_DIRECTORY + "dominant.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     agp_muller_file = emp::AddMullerPlotFile(*agp_world, DATA_DIRECTORY + "muller_data.dat");
     agp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) agp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { agp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
