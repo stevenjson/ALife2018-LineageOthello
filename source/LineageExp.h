@@ -28,7 +28,6 @@
 #include "tools/math.h"
 #include "tools/string_utils.h"
 
-
 #include "TestcaseSet.h"
 #include "OthelloHW.h"
 #include "lineage-config.h"
@@ -65,9 +64,11 @@ constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE = 0;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 
+const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips"};
 
+/// Setup a data_file with world that records information about the dominant genotype.
 template <typename WORLD_TYPE>
-emp::World_file AddDominantFile(WORLD_TYPE & world, const std::string & fpath){
+emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath){
     auto & file = world.SetupFile(fpath);
 
     std::function<size_t(void)> get_update = [&world](){return world.GetUpdate();};
@@ -410,10 +411,16 @@ protected:
     const size_t id = agent.GetID();
     // Evaluate agent on all test cases.
     double score = 0.0;
+    emp::vector<double> agent_scores(testcases.GetSize());
     for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
-      score += this->RunTest(id, cur_testcase);
+      const double test_score = this->RunTest(id, cur_testcase);
+      agent_scores[cur_testcase] = test_score;
+      score += test_score;
     }
     agent_score_cache[id] = score;
+    // Trigger systematics-recording functions:
+    record_fit_sig.Trigger(id, score);
+    record_phen_sig.Trigger(id, agent_scores);
   }
 
   /// Run test return test score.
@@ -485,7 +492,9 @@ public:
     // What is the maximum number of rounds for an othello game?
     OTHELLO_MAX_ROUND_CNT = (OTHELLO_BOARD_WIDTH * OTHELLO_BOARD_WIDTH) - 4;
 
-    last_mutation = {{"inst_substitutions", 0}, {"arg_substitutions", 0}, {"tag_bit_flips", 0}};
+    for (size_t i = 0; i < MUTATION_TYPES.size(); ++i) {
+      last_mutation.emplace(MUTATION_TYPES[i], 0);
+    }
 
     // Load test cases.
     testcases.RegisterTestcaseReader([this](emp::vector<std::string> & strs) { return this->GenerateTestcase(strs); });
@@ -635,7 +644,7 @@ public:
 
   // Mutation functions
   size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd);
-  size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);  // TODO
+  size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);
 
   // Population snapshot functions
   void SGP_Snapshot_SingleFile(size_t update);
@@ -833,16 +842,16 @@ void LineageExp::SGP__Debugging_Analysis() {
 size_t LineageExp::SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd) {
   SGP__program_t & program = agent.GetGenome();
   size_t mut_cnt = 0;
-  last_mutation["inst_substitutions"] = 0;
-  last_mutation["arg_substitutions"] = 0;
-  last_mutation["tag_bit_flips"] = 0;
-  //TODO: incorporate last mutation into Mutate function
+  for (size_t i = 0; i < MUTATION_TYPES.size(); ++i) {
+    last_mutation[MUTATION_TYPES[i]] = 0;
+  }
   // For each function:
   for (size_t fID = 0; fID < program.GetSize(); ++fID) {
     // Mutate affinity.
     for (size_t i = 0; i < program[fID].GetAffinity().GetSize(); ++i) {
       SGP__tag_t & aff = program[fID].GetAffinity();
       if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
+        ++last_mutation["tag_bit_flips"];
         ++mut_cnt;
         aff.Set(i, !aff.Get(i));
       }
@@ -854,18 +863,21 @@ size_t LineageExp::SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd) {
       for (size_t k = 0; k < inst.affinity.GetSize(); ++k) {
         if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
           ++mut_cnt;
+          ++last_mutation["tag_bit_flips"];
           inst.affinity.Set(k, !inst.affinity.Get(k));
         }
       }
       // Mutate instruction.
       if (rnd.P(SGP_PER_INST__SUB_RATE)) {
         ++mut_cnt;
+        ++last_mutation["inst_substitutions"];
         inst.id = rnd.GetUInt(program.GetInstLib()->GetSize());
       }
       // Mutate arguments (even if they aren't relevent to instruction).
       for (size_t k = 0; k < SGP__hardware_t::MAX_INST_ARGS; ++k) {
         if (rnd.P(SGP_PER_INST__SUB_RATE)) {
           ++mut_cnt;
+          ++last_mutation["arg_substitutions"];
           inst.args[k] = rnd.GetInt(SGP_PROG_MAX_ARG_VAL);
         }
       }
@@ -1183,7 +1195,13 @@ void LineageExp::ConfigSGP() {
   // NOTE: second argument specifies that we're not mutating the first thing int the pop (we're doing elite selection in all of our stuff).
   sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate(agent, rnd); }, 1);
   sgp_world->SetFitFun([this](SignalGPAgent & agent) { return this->CalcFitness(agent); });
-  sgp_world->OnGenotypeKnown([this](emp::Ptr<SGP__genotype_t> genotype, size_t pos) { genotype->GetData().RecordMutation(last_mutation); });
+  sgp_world->OnGenotypeKnown([this](emp::Ptr<SGP__genotype_t> genotype, size_t pos) {
+    // std::cout << "OnGenotypeKnown Mutations!" << std::endl;
+    // for (size_t i = 0; i < MUTATION_TYPES.size(); ++i) {
+    //   std::cout << "  " << MUTATION_TYPES[i] << ":" << last_mutation[MUTATION_TYPES[i]] << std::endl;
+    // }
+    genotype->GetData().RecordMutation(last_mutation);
+  });
 
   // Configure the instruction set.
   // - Default instruction set.
@@ -1343,14 +1361,11 @@ void LineageExp::ConfigSGP() {
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
 
     emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    // emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
     // sgp_world->OnUpdate([this](size_t ud){ if (ud == 1) sgp_muller_file.Update(); });
-    // TODO: trigger these after evaluation!
-    // emp::Signal<void(size_t pos, double)> record_fit_sig;
     record_fit_sig.AddAction([this](size_t pos, double fitness) { sgp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
-    // emp::Signal<void(size_t pos, phenotype_t)> record_phen_sig;
     record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { sgp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
     do_pop_init_sig.Trigger();
@@ -1378,7 +1393,6 @@ void LineageExp::ConfigSGP() {
   do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
 
   // - Configure selection
-  // TODO: configure different based on selection method settings.
   switch (SELECTION_METHOD) {
     case SELECTION_METHOD_ID__TOURNAMENT:
       do_selection_sig.AddAction([this]() {
