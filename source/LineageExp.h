@@ -265,7 +265,7 @@ protected:
   emp::vector<emp::vector<size_t>> testcases_by_phase;  ///< Testcase IDs organized by game phase (the length of which is defined by RESOURCE_SELECT__GAME_PHASE_LEN)
   emp::vector<emp::Resource> resources;                 ///< Resources for emp::ResourceSelect. One for each game phase.
 
-  emp::CollectionDataFile<std::unordered_set<emp::Ptr<SGP__genotype_t>, typename emp::Ptr<SGP__genotype_t>::hash_t>> sgp_muller_file;
+  emp::CollectionDataFile<std::unordered_set<emp::Ptr<SGP__genotype_t>, typename emp::Ptr<SGP__genotype_t>::hash_t>*> sgp_muller_file;
   // emp::CollectionDataFile<std::unordered_set<Ptr<SGP__genotype_t>, typename Ptr<SGP__genotype_t>::hash_t>> sgp_muller_file;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
@@ -1476,10 +1476,10 @@ void LineageExp::ConfigSGP() {
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
 
     emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
-    // sgp_world->OnUpdate([this](size_t ud){ if (ud == 1) sgp_muller_file.Update(); });
+    sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
+    sgp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) sgp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { sgp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
     record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { sgp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
