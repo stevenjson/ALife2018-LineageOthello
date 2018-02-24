@@ -9,7 +9,7 @@ class Othello:
         self.WriteHeaders()
         
     def WriteHeaders(self):
-        headers = ",".join("m_" + str(x) for x in list(range(1, 60)))
+        headers = ",".join("m_" + str(x) for x in list(range(0, 60)))
         headers = headers + ",player,e_move,round\n"
         self.file.write(headers)
 
@@ -108,7 +108,7 @@ def ConvertToBoards(rawTS, out_file):
     game = Othello(out_file)
 
     for i in range(len(move_list)):
-        game.WriteBoard(move_list[i], player_list[i], i+1)
+        game.WriteBoard(move_list[i], player_list[i], i)
         game.DoMove(move_list[i], player_list[i])
         
         
