@@ -1476,7 +1476,7 @@ void LineageExp::ConfigSGP() {
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
 
     emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    // emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     // AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
     // sgp_world->OnUpdate([this](size_t ud){ if (ud == 1) sgp_muller_file.Update(); });
