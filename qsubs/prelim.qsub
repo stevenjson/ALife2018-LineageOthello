@@ -117,7 +117,7 @@ then
 fi
 
 # Logistics details.
-EXP_SET=lineage_analysis
+EXP_SET=lineage_analysis_2-26
 PROJ_DIR=/mnt/home/lalejini/devo_ws/ALife2018-Lineage
 EXEC=lineage
 RUN_NAME=REP${PARAM__REPRESENTATION}_S${PARAM__SELECTION_METHOD}_M${PARAM__SGP_PER_INST__SUB_RATE}_FC${FUNCTION_CNT}_FL${FUNCTION_LEN}
