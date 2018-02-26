@@ -1,0 +1,48 @@
+set description Exploring lineage axes
+set email jorgen72@msu.edu
+set freq_email Crash
+set priority 1
+set class_pref 200 
+set walltime 4
+set mem_request 4
+set config_dir config
+set beacon_priority y
+set dest_dir /mnt/scratch/jorgen72/ALife2018/Runs
+set cpr 1
+
+# Tournament 
+
+1..30 tournament_0.0004 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.0004
+
+31..60 tournament_0.001 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.001
+
+61..90 tournament_0.002 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.002
+
+91..120 tournament_0.004 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.004
+
+121..150 tournament_0.01 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.01
+
+# Lexicase
+
+151..180 lexicase_0.0004 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.0004
+
+181..210 lexicase_0.001 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.001
+
+211..240 lexicase_0.002 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.002
+
+241..270 lexicase_0.004 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.004
+
+271..300 lexicase_0.01 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.01
+
+# Eco-EA
+
+301..330 resource_0.0004 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.0004
+
+331..360 resource_0.001 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.001
+
+361..390 resource_0.002 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.002
+
+391..420 resource_0.004 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.004
+
+421..450 resource_0.01 ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.01
+
