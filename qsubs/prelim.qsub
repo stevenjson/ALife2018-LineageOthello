@@ -45,7 +45,7 @@ then
 elif [ ${PBS_ARRAYID} -ge 211 ] && [ ${PBS_ARRAYID} -le 220 ]
 then
 PARAM__SELECTION_METHOD=0
-PARAM__SGP_PER_INST__SUB_RATE=0.0001
+PARAM__SGP_PER_INST__SUB_RATE=0.001
 
 # 21-30
 elif [ ${PBS_ARRAYID} -ge 221 ] && [ ${PBS_ARRAYID} -le 230 ]
@@ -73,7 +73,7 @@ then
 elif [ ${PBS_ARRAYID} -ge 261 ] && [ ${PBS_ARRAYID} -le 270 ]
 then
   PARAM__SELECTION_METHOD=1
-  PARAM__SGP_PER_INST__SUB_RATE=0.0001
+  PARAM__SGP_PER_INST__SUB_RATE=0.001
 #71-80
 elif [ ${PBS_ARRAYID} -ge 271 ] && [ ${PBS_ARRAYID} -le 280 ]
 then
@@ -98,7 +98,7 @@ then
 elif [ ${PBS_ARRAYID} -ge 311 ] && [ ${PBS_ARRAYID} -le 320 ]
 then
   PARAM__SELECTION_METHOD=2
-  PARAM__SGP_PER_INST__SUB_RATE=0.0001
+  PARAM__SGP_PER_INST__SUB_RATE=0.001
 #121-130
 elif [ ${PBS_ARRAYID} -ge 321 ] && [ ${PBS_ARRAYID} -le 330 ]
 then
