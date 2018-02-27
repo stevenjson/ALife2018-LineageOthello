@@ -15,26 +15,26 @@ set dest_dir /mnt/scratch/lalejini/data/ALIFE2018/lineage_analysis_2-27
 
 # = FNCNT 5; FNLEN 100 =
 # == Mutation rate: 0.0004 ==
-431..440 REP1_S0_M0.0004_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-441..450 REP1_S1_M0.0004_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-451..460 REP1_S2_M0.0004_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+431..440 REP1_S0_M0.0004_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+441..450 REP1_S1_M0.0004_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+451..460 REP1_S2_M0.0004_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
 
 # == Mutation rate: 0.001 ==
-461..470 REP1_S0_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-471..480 REP1_S1_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-481..490 REP1_S2_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+461..470 REP1_S0_M0.001_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+471..480 REP1_S1_M0.001_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+481..490 REP1_S2_M0.001_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
 
 # == Mutation rate: 0.002 ==
-491..500 REP1_S0_M0.002_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-501..510 REP1_S1_M0.002_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-511..520 REP1_S2_M0.002_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+491..500 REP1_S0_M0.002_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+501..510 REP1_S1_M0.002_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+511..520 REP1_S2_M0.002_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
 
 # == Mutation rate: 0.004 ==
-521..530 REP1_S0_M0.004_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-531..540 REP1_S1_M0.004_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-541..550 REP1_S2_M0.004_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+521..530 REP1_S0_M0.004_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+531..540 REP1_S1_M0.004_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+541..550 REP1_S2_M0.004_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
 
 # == Mutation rate: 0.01 ==
-551..560 REP1_S0_M0.01_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-561..570 REP1_S1_M0.01_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
-571..580 REP1_S2_M0.01_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+551..560 REP1_S0_M0.01_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+561..570 REP1_S1_M0.01_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
+571..580 REP1_S2_M0.01_FC5_FL100 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt5_fnlen100.sgp ; qstat -f $PBS_JOBID
