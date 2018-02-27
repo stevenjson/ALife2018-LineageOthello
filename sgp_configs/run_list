@@ -9,9 +9,9 @@ set dest_dir /mnt/scratch/lalejini/data/ALIFE2018/lineage_analysis_2-27
 
 # = FNCNT 10; FNLEN 50 =
 # == Mutation rate: 0.001 ==
-401..410 REP1_S0_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt10_fnlen50.sgp ; qstat -f $PBS_JOBID
-411..420 REP1_S1_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt10_fnlen50.sgp ; qstat -f $PBS_JOBID
-421..430 REP1_S2_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ancestor_fncnt10_fnlen50.sgp ; qstat -f $PBS_JOBID
+401..410 REP1_S0_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt10_fnlen50.sgp ; qstat -f $PBS_JOBID
+411..420 REP1_S1_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt10_fnlen50.sgp ; qstat -f $PBS_JOBID
+421..430 REP1_S2_M0.001_FC10_FL50 module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -SGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ancestor_fncnt10_fnlen50.sgp ; qstat -f $PBS_JOBID
 
 # = FNCNT 5; FNLEN 100 =
 # == Mutation rate: 0.0004 ==
