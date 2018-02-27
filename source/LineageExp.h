@@ -44,7 +44,6 @@ constexpr size_t REPRESENTATION_ID__SIGNALGP = 1;
 
 constexpr size_t TRAIT_ID__MOVE = 0;
 constexpr size_t TRAIT_ID__DONE = 1;
-constexpr size_t TRAIT_ID__PLAYER_ID = 2;
 
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
@@ -63,6 +62,8 @@ constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
 
 constexpr size_t POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE = 0;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
+
+constexpr size_t OTHELLO_BOARD_WIDTH = 8;
 
 const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips"};
 
@@ -102,6 +103,8 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
 class LineageExp {
 public:
   // @aliases
+  using player_t = emp::Othello::Player;
+  using facing_t = emp::Othello::Facing;
   // SignalGP-specific type aliases:
   using SGP__hardware_t = emp::EventDrivenGP_AW<SGP__TAG_WIDTH>;
   using SGP__program_t = SGP__hardware_t::Program;
@@ -168,10 +171,10 @@ public:
 
   struct TestcaseInput {
     emp::Othello game;  ///< Othello game board.
-    size_t playerID;    ///< From what player is the testcase move made?
+    player_t playerID;    ///< From what player is the testcase move made?
     size_t round;       ///< What round is this testcase?
 
-    TestcaseInput(size_t board_width, size_t pID=0) : game(board_width), playerID(pID) { ; }
+    TestcaseInput(player_t pID=player_t::DARK) : playerID(pID) { ; }
     TestcaseInput(const TestcaseInput &) = default;
     TestcaseInput(TestcaseInput &&) = default;
   };
@@ -218,7 +221,6 @@ protected:
   double SCORE_MOVE__LEGAL_MOVE_VALUE;
   double SCORE_MOVE__EXPERT_MOVE_VALUE;
   // Othello Group parameters
-  size_t OTHELLO_BOARD_WIDTH;
   size_t OTHELLO_HW_BOARDS;
   // SignalGP program group parameters
   size_t SGP_FUNCTION_LEN;
@@ -305,7 +307,7 @@ protected:
 
   std::function<size_t(void)> get_eval_agent_move;              ///< Should return eval_hardware's current move selection. Hardware-specific!
   std::function<bool(void)> get_eval_agent_done;                ///< Should return whether or not eval_hardware is done. Hardware-specific!
-  std::function<size_t(void)> get_eval_agent_playerID;          ///< Should return eval_hardware's current playerID. Hardware-specific!
+  std::function<player_t(void)> get_eval_agent_playerID;          ///< Should return eval_hardware's current playerID. Hardware-specific!
   std::function<double(test_case_t &, size_t)> calc_test_score; ///< Given a test case and a move, what is the appropriate score? Shared between hardware types.
 
   /// Evaluate GP move (hardware-agnostic).
@@ -327,8 +329,8 @@ protected:
     // Did we promise a valid move?
     if (promise_validity) {
       // Double-check move validity.
-      const size_t playerID = get_eval_agent_playerID();
-      if (!game.IsMoveValid(playerID, move)) {
+      const player_t playerID = get_eval_agent_playerID();
+      if (!game.IsValidMove(playerID, move)) {
         // Move is not valid. Needs to be fixed, so set it to the nearest valid move.
         emp::vector<size_t> valid_moves = game.GetMoveOptions(playerID);
         const size_t move_x = game.GetPosX(move);
@@ -351,7 +353,7 @@ protected:
   }
 
   /// Returns a random valid move.
-  size_t EvalMove__Random(emp::Othello & game, size_t playerID, bool promise_validity=false) {
+  size_t EvalMove__Random(emp::Othello & game, player_t playerID, bool promise_validity=false) {
     emp::vector<size_t> options = game.GetMoveOptions(playerID);
     return options[random->GetUInt(0, options.size())];
   }
@@ -361,10 +363,10 @@ protected:
   /// Expected line contents: game board positions, player ID, expert move, round
   test_case_t GenerateTestcase(emp::vector<std::string> & test_case_strings) {
     // Build test case input.
-    TestcaseInput input(OTHELLO_BOARD_WIDTH);
+    TestcaseInput input;
     emp::Othello & game = input.game;
     // test_case_strings expectation: game_board_positions, round, playerID, expert_move
-    emp_assert(test_case_strings.size() == (game.GetBoardSize() + 3));
+    emp_assert(test_case_strings.size() == (game.GetBoardCells() + 3));
 
     // Get the round.
     size_t rnd = std::atoi(test_case_strings.back().c_str());
@@ -376,20 +378,20 @@ protected:
 
     // Get the playerID.
     int id = std::atoi(test_case_strings.back().c_str());
-    size_t playerID = (id == TESTCASE_FILE__DARK_ID) ? emp::Othello::DarkPlayerID() : emp::Othello::LightPlayerID();
+    player_t playerID = (id == TESTCASE_FILE__DARK_ID) ? player_t::DARK : player_t::LIGHT;
     test_case_strings.resize(test_case_strings.size() - 1);
 
     for (size_t i = 0; i < test_case_strings.size(); ++i) {
       int board_space = std::atoi(test_case_strings[i].c_str());
       switch (board_space) {
         case TESTCASE_FILE__DARK_ID:
-          game.SetPos(i, emp::Othello::DarkDisk());
+          game.SetPos(i, player_t::DARK);
           break;
         case TESTCASE_FILE__LIGHT_ID:
-          game.SetPos(i, emp::Othello::LightDisk());
+          game.SetPos(i, player_t::LIGHT);
           break;
         case TESTCASE_FILE__OPEN_ID:
-          game.SetPos(i, emp::Othello::OpenSpace());
+          game.SetPos(i, player_t::NONE);
           break;
         default:
           std::cout << "Unrecognized board tile! Exiting..." << std::endl;
@@ -403,7 +405,7 @@ protected:
     TestcaseOutput output;
     output.expert_move = expert_move;
     emp::vector<size_t> valid_moves = game.GetMoveOptions(playerID);
-    output.move_valid.resize(game.GetBoardSize());   // Resize bit vector to match board size.
+    output.move_valid.resize(game.GetBoardCells());   // Resize bit vector to match board size.
     for (size_t i = 0; i < output.move_valid.size(); ++i) output.move_valid[i] = 0;
     for (size_t i = 0; i < valid_moves.size(); ++i) {
       output.move_valid[valid_moves[i]] = 1;
@@ -452,6 +454,21 @@ protected:
     for (size_t i = 0; i < testcase_eval_cache.size(); ++i) { testcase_eval_cache[i] = 0; }
   }
 
+  facing_t IntToFacing(int dir) {
+    dir = emp::Mod(dir, emp::Othello::NUM_DIRECTIONS);
+    switch(dir) {
+      case 0: return facing_t::N;
+      case 1: return facing_t::NE;
+      case 2: return facing_t::E;
+      case 3: return facing_t::SE;
+      case 4: return facing_t::S;
+      case 5: return facing_t::SW;
+      case 6: return facing_t::W;
+      case 7: return facing_t::NW;
+    }
+    emp_assert(false); return facing_t::N; //< Should never get here.
+  }
+
 public:
   LineageExp(const LineageConfig & config)   // @constructor
     : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), testcases(), cur_testcase(0), last_mutation(),
@@ -481,7 +498,6 @@ public:
     SCORE_MOVE__ILLEGAL_MOVE_VALUE = config.SCORE_MOVE__ILLEGAL_MOVE_VALUE();
     SCORE_MOVE__LEGAL_MOVE_VALUE = config.SCORE_MOVE__LEGAL_MOVE_VALUE();
     SCORE_MOVE__EXPERT_MOVE_VALUE = config.SCORE_MOVE__EXPERT_MOVE_VALUE();
-    OTHELLO_BOARD_WIDTH = config.OTHELLO_BOARD_WIDTH();
     OTHELLO_HW_BOARDS = config.OTHELLO_HW_BOARDS();
     SGP_FUNCTION_LEN = config.SGP_FUNCTION_LEN();
     SGP_FUNCTION_CNT = config.SGP_FUNCTION_CNT();
@@ -575,7 +591,7 @@ public:
     }
 
     // Configure the dreamware!
-    othello_dreamware = emp::NewPtr<OthelloHardware>(OTHELLO_BOARD_WIDTH, 1);
+    othello_dreamware = emp::NewPtr<OthelloHardware>(1);
 
     // Make the world(s)!
     // - SGP World -
@@ -869,7 +885,6 @@ void LineageExp::AGP__ResetHW()
   agp_eval_hw->ResetHardware();
   agp_eval_hw->SetTrait(TRAIT_ID__MOVE, -1);
   agp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
-  agp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
 }
 
 // SignalGP Functions
@@ -879,7 +894,6 @@ void LineageExp::SGP__ResetHW(const SGP__memory_t & main_in_mem) {
   sgp_eval_hw->ResetHardware();
   sgp_eval_hw->SetTrait(TRAIT_ID__MOVE, -1);
   sgp_eval_hw->SetTrait(TRAIT_ID__DONE, 0);
-  sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, -1);
   sgp_eval_hw->SpawnCore(0, main_in_mem, true);
 }
 
@@ -1053,7 +1067,7 @@ void LineageExp::ConfigSGP() {
   };
 
   get_eval_agent_playerID = [this]() {
-    return (size_t)sgp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
+    return othello_dreamware->GetPlayerID();
   };
 
   // Setup triggers!
@@ -1175,9 +1189,8 @@ void LineageExp::ConfigSGP() {
       });
       // Setup run-mode begin turn signal response.
       begin_turn_sig.AddAction([this](const emp::Othello & game) {
-        const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+        const player_t playerID = testcases[cur_testcase].GetInput().playerID;
         SGP__ResetHW();
-        sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
         othello_dreamware->Reset(game);
         othello_dreamware->SetActiveDream(0);
         othello_dreamware->SetPlayerID(playerID);
@@ -1206,7 +1219,7 @@ void LineageExp::ConfigSGP() {
           });
           // Setup a verbose begin_turn_sig response.
           begin_turn_sig.AddAction([this](const emp::Othello & game) {
-            const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+            const player_t playerID = testcases[cur_testcase].GetInput().playerID;
             std::cout << "===============================================" << std::endl;
             std::cout << "TEST CASE: " << cur_testcase << std::endl;
             std::cout << "ID: " << testcases[cur_testcase].id << std::endl;
@@ -1229,7 +1242,6 @@ void LineageExp::ConfigSGP() {
             } std::cout << std::endl;
 
             SGP__ResetHW();
-            sgp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
             othello_dreamware->Reset(game);
             othello_dreamware->SetActiveDream(0);
             othello_dreamware->SetPlayerID(playerID);
@@ -1395,9 +1407,8 @@ void LineageExp::ConfigAGP() {
       });
       // Setup run-mode begin turn signal response.
       begin_turn_sig.AddAction([this](const emp::Othello & game) {
-        const size_t playerID = testcases[cur_testcase].GetInput().playerID;
+        const player_t playerID = testcases[cur_testcase].GetInput().playerID;
         AGP__ResetHW();
-        agp_eval_hw->SetTrait(TRAIT_ID__PLAYER_ID, playerID);
         othello_dreamware->Reset(game);
         othello_dreamware->SetActiveDream(0);
         othello_dreamware->SetPlayerID(playerID);
@@ -1425,7 +1436,7 @@ void LineageExp::ConfigAGP() {
   };
 
   get_eval_agent_playerID = [this]() {
-    return (size_t)agp_eval_hw->GetTrait(TRAIT_ID__PLAYER_ID);
+    return othello_dreamware->GetPlayerID();
   };
 }
 
