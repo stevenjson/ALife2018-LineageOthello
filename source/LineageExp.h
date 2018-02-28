@@ -82,6 +82,16 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
       file.AddFun(mut_fun, "dominant_"+mut_type+"_mutation_count", "sum of "+mut_type+" mutations along dominant organism's lineage");
     }
 
+
+    std::function<int(void)> dom_lin_len = [&world](){
+      return emp::LineageLength(world.GetGenotypeAt(0));
+    };
+    std::function<int(void)> dom_lin_len_inst_sub = [&world](){
+      return emp::CountMutSteps(world.GetGenotypeAt(0), "inst_substitutions");
+    };
+    std::function<int(void)> dom_lin_len_all_sub = [&world](){
+      return emp::CountMutSteps(world.GetGenotypeAt(0), emp::vector<std::string>({"inst_substitutions", "arg_substitutions"}));
+    };
     std::function<int(void)> dom_del_step = [&world](){
       return emp::CountDeleteriousSteps(world.GetGenotypeAt(0));
     };
@@ -93,6 +103,9 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
     };
 
     // file.AddFun(dom_mut_count, "dominant_mutation_count", "sum of mutations along dominant organism's lineage");
+    file.AddFun(dom_lin_len, "dominant_lineage_length", "count of changes in genotype in the dominant organism's lineage.");
+    file.AddFun(dom_lin_len_inst_sub, "dominant_lineage_length_by_inst_substitution", "count of changes in genotype due to instruction substitutions in the dominant organism's lineage.");
+    file.AddFun(dom_lin_len_all_sub, "dominant_lineage_length_by_all_substitutions", "count of changes in genotype in the dominant organism's lineage.");
     file.AddFun(dom_del_step, "dominant_deleterious_steps", "count of deleterious steps along dominant organism's lineage");
     file.AddFun(dom_phen_vol, "dominant_phenotypic_volatility", "count of changes in phenotype along dominant organism's lineage");
     file.AddFun(dom_unique_phen, "dominant_unique_phenotypes", "count of unique phenotypes along dominant organism's lineage");
