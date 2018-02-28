@@ -1,0 +1,47 @@
+set description Exploring lineage axes
+set email jorgen72@msu.edu
+set freq_email Crash
+set priority 1
+set class_pref 200 
+set walltime 4
+set mem_request 4
+set config_dir config
+set beacon_priority y
+set dest_dir /mnt/scratch/jorgen72/ALife2018/Runs
+
+# Tournament 
+
+1..30 tournament_0004 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+31..60 tournament_001 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+61..90 tournament_002 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+91..120 tournament_004 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+121..150 tournament_01 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -AGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+# Lexicase
+
+151..180 lexicase_0004 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+181..210 lexicase_001 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+211..240 lexicase_002 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+241..270 lexicase_004 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+271..300 lexicase_01 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -AGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+# Eco-EA
+
+301..330 resource_0004 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.0004 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+331..360 resource_001 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.001 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+361..390 resource_002 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.002 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+391..420 resource_004 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.004 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
+421..450 resource_01 ../../lineage -RANDOM_SEED $seed -SELECTION_METHOD 2 -AGP_PER_INST__SUB_RATE 0.01 -ANCESTOR_FPATH ../../ancestor.gp -TEST_CASE_FILE ../../testcases.csv
+
