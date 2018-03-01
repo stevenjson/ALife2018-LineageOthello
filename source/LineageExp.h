@@ -62,6 +62,9 @@ constexpr size_t SELECTION_METHOD_ID__LEXICASE = 1;
 constexpr size_t SELECTION_METHOD_ID__ECOEA = 2;
 constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
 
+constexpr size_t RESOURCE_SELECT_MODE_ID__PHASES = 0;   ///< Each resource is a collection of testcase that share a range of game rounds.
+constexpr size_t RESOURCE_SELECT_MODE_ID__INDIV = 1;    ///< Each test case is a resource.
+
 constexpr size_t POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE = 0;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 
@@ -225,6 +228,7 @@ protected:
   // Selection Group parameters
   size_t SELECTION_METHOD;
   size_t TOURNAMENT_SIZE;
+  size_t RESOURCE_SELECT__MODE;
   double RESOURCE_SELECT__RES_AMOUNT;
   double RESOURCE_SELECT__RES_INFLOW;
   double RESOURCE_SELECT__OUTFLOW;
@@ -509,6 +513,7 @@ public:
     POP_INITIALIZATION_METHOD = config.POP_INITIALIZATION_METHOD();
     SELECTION_METHOD = config.SELECTION_METHOD();
     TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
+    RESOURCE_SELECT__MODE = config.RESOURCE_SELECT__MODE();
     RESOURCE_SELECT__RES_AMOUNT = config.RESOURCE_SELECT__RES_AMOUNT();
     RESOURCE_SELECT__RES_INFLOW = config.RESOURCE_SELECT__RES_INFLOW();
     RESOURCE_SELECT__OUTFLOW = config.RESOURCE_SELECT__OUTFLOW();
@@ -565,16 +570,31 @@ public:
       size_t phase = emp::Min(rd/RESOURCE_SELECT__GAME_PHASE_LEN, testcases_by_phase.size() - 1);
       testcases_by_phase[phase].emplace_back(i);
     }
-    // Fill out resources.
-    for (size_t i = 0; i < bucket_cnt; ++i) {
-      resources.emplace_back(RESOURCE_SELECT__RES_AMOUNT, RESOURCE_SELECT__RES_INFLOW, RESOURCE_SELECT__OUTFLOW);
-    }
 
-    // Print out test case distribution.
-    std::cout << "Test case phase distribution (phase:size):";
-    for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
-      std::cout << " " << i << ":" << testcases_by_phase[i].size();
-    } std::cout << std::endl;
+    // Fill out resources based on resource select mode
+    switch (RESOURCE_SELECT__MODE) {
+      case RESOURCE_SELECT_MODE_ID__PHASES: {
+        // Fill out resources.
+        for (size_t i = 0; i < bucket_cnt; ++i) {
+          resources.emplace_back(RESOURCE_SELECT__RES_AMOUNT, RESOURCE_SELECT__RES_INFLOW, RESOURCE_SELECT__OUTFLOW);
+        }
+        // Print out test case distribution.
+        std::cout << "Test case phase distribution (phase:size):";
+        for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
+          std::cout << " " << i << ":" << testcases_by_phase[i].size();
+        } std::cout << std::endl;
+        break;
+      }
+      case RESOURCE_SELECT_MODE_ID__INDIV: {
+        for (size_t i = 0; i < testcases.GetSize(); ++i) {
+          resources.emplace_back(RESOURCE_SELECT__RES_AMOUNT, RESOURCE_SELECT__RES_INFLOW, RESOURCE_SELECT__OUTFLOW);
+        }
+        break;
+      }
+      default:
+        std::cout << "Unrecognized resource select mode. Exiting..." << std::endl;
+        exit(-1);
+    }
 
     // Given a test case and a move, how are we scoring an agent?
     calc_test_score = [this](test_case_t & test, othello_idx_t move) {
@@ -1171,17 +1191,35 @@ void LineageExp::ConfigSGP() {
     }
     case SELECTION_METHOD_ID__ECOEA: {
       sgp_resource_fit_set.resize(0);
-      // Add a resource fit function for each game phase.
-      for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
-        sgp_resource_fit_set.push_back([i, this](SignalGPAgent & agent) {
-          double score = 0;
-          emp::vector<size_t> & phasecases = testcases_by_phase[i];
-          // Aggregate all relevant test scores.
-          for (size_t j = 0; j < phasecases.size(); ++j) {
-            score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+      // Setup the fitness function set based on resource select mode.
+      switch (RESOURCE_SELECT__MODE) {
+        case RESOURCE_SELECT_MODE_ID__PHASES: {
+          // Add a resource fit function for each game phase.
+          for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
+            sgp_resource_fit_set.push_back([i, this](SignalGPAgent & agent) {
+              double score = 0;
+              emp::vector<size_t> & phasecases = testcases_by_phase[i];
+              // Aggregate all relevant test scores.
+              for (size_t j = 0; j < phasecases.size(); ++j) {
+                score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+              }
+              return score;
+            });
           }
-          return score;
-        });
+          break;
+        }
+        case RESOURCE_SELECT_MODE_ID__INDIV: {
+          // Add a resource fit function for each testcase.
+          for (size_t i = 0; i < testcases.GetSize(); ++i) {
+            sgp_resource_fit_set.push_back([i, this](SignalGPAgent & agent) {
+              return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+            });
+          }
+          break;
+        }
+        default:
+          std::cout << "Unrecognized resource select mode. Exiting..." << std::endl;
+          exit(-1);
       }
       // Setup the do selection signal action.
       do_selection_sig.AddAction([this]() {
@@ -1382,17 +1420,35 @@ void LineageExp::ConfigAGP() {
   }
   case SELECTION_METHOD_ID__ECOEA: {
     agp_resource_fit_set.resize(0);
-    // Add a resource fit function for each game phase.
-    for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
-      agp_resource_fit_set.push_back([i, this](AvidaGPAgent & agent) {
-        double score = 0;
-        emp::vector<size_t> & phasecases = testcases_by_phase[i];
-        // Aggregate all relevant test scores.
-        for (size_t j = 0; j < phasecases.size(); ++j) {
-          score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+    // Setup the fitness function set based on resource select mode.
+    switch (RESOURCE_SELECT__MODE) {
+      case RESOURCE_SELECT_MODE_ID__PHASES: {
+        // Add a resource fit function for each game phase.
+        for (size_t i = 0; i < testcases_by_phase.size(); ++i) {
+          agp_resource_fit_set.push_back([i, this](AvidaGPAgent & agent) {
+            double score = 0;
+            emp::vector<size_t> & phasecases = testcases_by_phase[i];
+            // Aggregate all relevant test scores.
+            for (size_t j = 0; j < phasecases.size(); ++j) {
+              score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+            }
+            return score;
+          });
         }
-        return score;
-      });
+        break;
+      }
+      case RESOURCE_SELECT_MODE_ID__INDIV: {
+        // Add a resource fit function for each testcase.
+        for (size_t i = 0; i < testcases.GetSize(); ++i) {
+          agp_resource_fit_set.push_back([i, this](AvidaGPAgent & agent) {
+            return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+          });
+        }
+        break;
+      }
+      default:
+        std::cout << "Unrecognized resource select mode. Exiting..." << std::endl;
+        exit(-1);
     }
     // Setup the do selection signal action.
     do_selection_sig.AddAction([this]() {
