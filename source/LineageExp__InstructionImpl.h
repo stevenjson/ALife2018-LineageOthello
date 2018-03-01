@@ -1,6 +1,8 @@
 #ifndef LINEAGE_INST_IMPL_H
 #define LINEAGE_INST_IMPL_H
 
+#include "LineageExp.h"
+
 void LineageExp::ConfigSGP_InstLib() {
   // Configure the instruction set.
   // - Default instruction set.
@@ -248,11 +250,10 @@ void LineageExp::SGP_Inst_EndTurn(SGP__hardware_t & hw, const SGP__inst_t & inst
 // SGP__Inst_SetMoveXY
 void LineageExp::SGP__Inst_SetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
-  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
   const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
-  const size_t move = dreamboard.GetPosID(move_x, move_y);
-  hw.SetTrait(TRAIT_ID__MOVE, move);
+  const othello_idx_t move(move_x, move_y);
+  hw.SetTrait(TRAIT_ID__MOVE, move.pos);
 }
 // SGP__Inst_SetMoveID
 void LineageExp::SGP__Inst_SetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst) {
@@ -263,12 +264,9 @@ void LineageExp::SGP__Inst_SetMoveID(SGP__hardware_t & hw, const SGP__inst_t & i
 // SGP__Inst_GetMoveXY
 void LineageExp::SGP__Inst_GetMoveXY(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
-  emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
-  const size_t move_x = dreamboard.GetPosX(move_id);
-  const size_t move_y = dreamboard.GetPosY(move_id);
-  state.SetLocal(inst.args[0], move_x);
-  state.SetLocal(inst.args[1], move_y);
+  const othello_idx_t move = GetOthelloIndex((size_t)hw.GetTrait(TRAIT_ID__MOVE));
+  state.SetLocal(inst.args[0], move.x());
+  state.SetLocal(inst.args[1], move.y());
 }
 // SGP__Inst_GetMoveID
 void LineageExp::SGP__Inst_GetMoveID(SGP__hardware_t & hw, const SGP__inst_t & inst) {
@@ -283,7 +281,7 @@ void LineageExp::SGP__Inst_IsValidXY_HW(SGP__hardware_t & hw, const SGP__inst_t 
   const player_t playerID = othello_dreamware->GetPlayerID();
   const size_t move_x = state.GetLocal(inst.args[0]);
   const size_t move_y = state.GetLocal(inst.args[1]);
-  const int valid = (int)dreamboard.IsValidMove(playerID, move_x, move_y);
+  const int valid = (int)dreamboard.IsValidMove(playerID, {move_x, move_y});
   state.SetLocal(inst.args[2], valid);
 }
 // SGP__Inst_IsValidID_HW
@@ -292,7 +290,7 @@ void LineageExp::SGP__Inst_IsValidID_HW(SGP__hardware_t & hw, const SGP__inst_t 
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const player_t playerID = othello_dreamware->GetPlayerID();
   const size_t move_id = state.GetLocal(inst.args[0]);
-  const int valid = (int)dreamboard.IsValidMove(playerID, move_id);
+  const int valid = (int)dreamboard.IsValidMove(playerID, GetOthelloIndex(move_id));
   state.SetLocal(inst.args[1], valid);
 }
 // SGP__Inst_IsValidOppXY
@@ -303,7 +301,7 @@ void LineageExp::SGP__Inst_IsValidOppXY_HW(SGP__hardware_t & hw, const SGP__inst
   const player_t oppID = dreamboard.GetOpponent(playerID);
   const size_t move_x = state.GetLocal(inst.args[0]);
   const size_t move_y = state.GetLocal(inst.args[1]);
-  const int valid = (int)dreamboard.IsValidMove(oppID, move_x, move_y);
+  const int valid = (int)dreamboard.IsValidMove(oppID, {move_x, move_y});
   state.SetLocal(inst.args[2], valid);
 }
 // SGP__Inst_IsValidOppID
@@ -313,7 +311,7 @@ void LineageExp::SGP__Inst_IsValidOppID_HW(SGP__hardware_t & hw, const SGP__inst
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
   const size_t move_id = state.GetLocal(inst.args[0]);
-  const int valid = (int)dreamboard.IsValidMove(oppID, move_id);
+  const int valid = (int)dreamboard.IsValidMove(oppID, GetOthelloIndex(move_id));
   state.SetLocal(inst.args[1], valid);
 }
 // SGP__Inst_AdjacentXY
@@ -323,13 +321,13 @@ void LineageExp::SGP__Inst_AdjacentXY(SGP__hardware_t & hw, const SGP__inst_t & 
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
   const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
   const facing_t dir  = IntToFacing(state.GetLocal(inst.args[2]));
-  const int nID = dreamboard.GetNeighbor(move_x, move_y, dir);
-  if (nID == -1) {
+  const othello_idx_t neighbor = dreamboard.GetNeighbor({move_x, move_y}, dir);
+  if (!neighbor.IsValid()) {
     state.SetLocal(inst.args[0], AGENT_VIEW__ILLEGAL_ID);
     state.SetLocal(inst.args[1], AGENT_VIEW__ILLEGAL_ID);
   } else {
-    state.SetLocal(inst.args[0], dreamboard.GetPosX(nID));
-    state.SetLocal(inst.args[1], dreamboard.GetPosY(nID));
+    state.SetLocal(inst.args[0], neighbor.x());
+    state.SetLocal(inst.args[1], neighbor.y());
   }
 }
 // SGP__Inst_AdjacentID
@@ -337,9 +335,9 @@ void LineageExp::SGP__Inst_AdjacentID(SGP__hardware_t & hw, const SGP__inst_t & 
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
-  const facing_t dir  = IntToFacing(state.GetLocal(inst.args[2])); //< Realize this is off.. Need to keep it arg2 for now.
-  const int nID       = dreamboard.GetNeighbor(move_id, dir);
-  state.SetLocal(inst.args[0], (nID == -1) ? AGENT_VIEW__ILLEGAL_ID : nID);
+  const facing_t dir = IntToFacing(state.GetLocal(inst.args[1]));
+  const othello_idx_t neighbor = dreamboard.GetNeighbor(GetOthelloIndex(move_id), dir);
+  state.SetLocal(inst.args[0], (!neighbor.IsValid()) ? AGENT_VIEW__ILLEGAL_ID : neighbor.pos);
 }
 // SGP_Inst_ValidMoveCnt_HW
 void LineageExp::SGP__Inst_ValidMoveCnt_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
@@ -362,11 +360,12 @@ void LineageExp::SGP__Inst_GetBoardValueXY_HW(SGP__hardware_t & hw, const SGP__i
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = state.GetLocal(inst.args[0]);
   const size_t move_y = state.GetLocal(inst.args[1]);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
   // If inputs are garbage, let the caller know.
-  if (dreamboard.IsValidPos(move_x, move_y)) {
-    const player_t owner = dreamboard.GetPosOwner(move_x, move_y);
+  if (move.IsValid()) {
+    const player_t owner = dreamboard.GetPosOwner({move_x, move_y});
     if (owner == playerID) { state.SetLocal(inst.args[2], AGENT_VIEW__SELF_ID); }
     else if (owner == oppID) { state.SetLocal(inst.args[2], AGENT_VIEW__OPP_ID); }
     else { state.SetLocal(inst.args[2], AGENT_VIEW__OPEN_ID); }
@@ -379,10 +378,11 @@ void LineageExp::SGP__Inst_GetBoardValueID_HW(SGP__hardware_t & hw, const SGP__i
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_id = state.GetLocal(inst.args[0]);
+  const othello_idx_t move(GetOthelloIndex(move_id));
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
   // If inputs are garbage, let the caller know.
-  if (dreamboard.IsValidPos(move_id)) {
+  if (move.IsValid()) {
     const player_t owner = dreamboard.GetPosOwner(move_id);
     if (owner == playerID) { state.SetLocal(inst.args[1], AGENT_VIEW__SELF_ID); }
     else if (owner == oppID) { state.SetLocal(inst.args[1], AGENT_VIEW__OPP_ID); }
@@ -397,9 +397,10 @@ void LineageExp::SGP__Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
   const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_x, move_y)) {
-    dreamboard.DoMove(playerID, move_x, move_y);
+  if (dreamboard.IsValidMove(playerID, move)) {
+    dreamboard.DoMove(playerID, move);
     state.SetLocal(inst.args[2], 1);
   } else {
     state.SetLocal(inst.args[2], 0);
@@ -409,10 +410,10 @@ void LineageExp::SGP__Inst_PlaceDiskXY_HW(SGP__hardware_t & hw, const SGP__inst_
 void LineageExp::SGP__Inst_PlaceDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = state.GetLocal(inst.args[0]);
+  const othello_idx_t move = GetOthelloIndex(state.GetLocal(inst.args[0]));
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_id)) {
-    dreamboard.DoMove(playerID, move_id);
+  if (dreamboard.IsValidMove(playerID, move)) {
+    dreamboard.DoMove(playerID, move);
     state.SetLocal(inst.args[1], 1);
   } else {
     state.SetLocal(inst.args[1], 0);
@@ -424,10 +425,11 @@ void LineageExp::SGP__Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__in
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
   const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_x, move_y)) {
-    dreamboard.DoMove(oppID, move_x, move_y);
+  if (dreamboard.IsValidMove(oppID, move)) {
+    dreamboard.DoMove(oppID, move);
     state.SetLocal(inst.args[2], 1);
   } else {
     state.SetLocal(inst.args[2], 0);
@@ -437,11 +439,11 @@ void LineageExp::SGP__Inst_PlaceOppDiskXY_HW(SGP__hardware_t & hw, const SGP__in
 void LineageExp::SGP__Inst_PlaceOppDiskID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = state.GetLocal(inst.args[0]);
+  const othello_idx_t move = GetOthelloIndex(state.GetLocal(inst.args[0]));
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_id)) {
-    dreamboard.DoMove(oppID, move_id);
+  if (dreamboard.IsValidMove(oppID, move)) {
+    dreamboard.DoMove(oppID, move);
     state.SetLocal(inst.args[1], 1);
   } else {
     state.SetLocal(inst.args[1], 0);
@@ -453,10 +455,10 @@ void LineageExp::SGP__Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t 
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
   const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
-  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_id)) {
-    state.SetLocal(inst.args[2], dreamboard.GetFlipList(playerID, move_id).size());
+  if (dreamboard.IsValidMove(playerID, move)) {
+    state.SetLocal(inst.args[2], dreamboard.GetFlipCount(playerID, move));
   } else {
     state.SetLocal(inst.args[2], 0);
   }
@@ -465,10 +467,10 @@ void LineageExp::SGP__Inst_FlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst_t 
 void LineageExp::SGP__Inst_FlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  const othello_idx_t move = GetOthelloIndex((size_t)state.GetLocal(inst.args[0]));
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_id)) {
-    state.SetLocal(inst.args[1], dreamboard.GetFlipList(playerID, move_id).size());
+  if (dreamboard.IsValidMove(playerID, move)) {
+    state.SetLocal(inst.args[1], dreamboard.GetFlipCount(playerID, move));
   } else {
     state.SetLocal(inst.args[1], 0);
   }
@@ -479,11 +481,11 @@ void LineageExp::SGP__Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)state.GetLocal(inst.args[0]);
   const size_t move_y = (size_t)state.GetLocal(inst.args[1]);
-  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_id)) {
-    state.SetLocal(inst.args[2], dreamboard.GetFlipList(oppID, move_id).size());
+  if (dreamboard.IsValidMove(oppID, move)) {
+    state.SetLocal(inst.args[2], dreamboard.GetFlipCount(oppID, move));
   } else {
     state.SetLocal(inst.args[2], 0);
   }
@@ -492,11 +494,11 @@ void LineageExp::SGP__Inst_OppFlipCntXY_HW(SGP__hardware_t & hw, const SGP__inst
 void LineageExp::SGP__Inst_OppFlipCntID_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = (size_t)state.GetLocal(inst.args[0]);
+  const othello_idx_t move = GetOthelloIndex((size_t)state.GetLocal(inst.args[0]));
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_id)) {
-    state.SetLocal(inst.args[1], dreamboard.GetFlipList(oppID, move_id).size());
+  if (dreamboard.IsValidMove(oppID, move)) {
+    state.SetLocal(inst.args[1], dreamboard.GetFlipCount(oppID, move));
   } else {
     state.SetLocal(inst.args[1], 0);
   }
@@ -506,7 +508,7 @@ void LineageExp::SGP__Inst_FrontierCnt_HW(SGP__hardware_t & hw, const SGP__inst_
   SGP__state_t & state = hw.GetCurState();
   emp::Othello & dreamboard = othello_dreamware->GetActiveDreamOthello();
   const player_t playerID = othello_dreamware->GetPlayerID();
-  state.SetLocal(inst.args[0], dreamboard.GetFrontierPosCnt(playerID));
+  state.SetLocal(inst.args[0], dreamboard.CountFrontierPos(playerID));
 }
 // SGP_Inst_ResetBoard_HW
 void LineageExp::SGP__Inst_ResetBoard_HW(SGP__hardware_t & hw, const SGP__inst_t & inst) {
@@ -533,11 +535,10 @@ void LineageExp::AGP__Inst_EndTurn(AGP__hardware_t &hw, const AGP__inst_t &inst)
 // AGP__Inst_SetMoveXY
 void LineageExp::AGP__Inst_SetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
-  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = hw.regs[inst.args[0]];
   const size_t move_y = hw.regs[inst.args[1]];
-  const size_t move = dreamboard.GetPosID(move_x, move_y);
-  hw.SetTrait(TRAIT_ID__MOVE, move);
+  const othello_idx_t move(move_x, move_y);
+  hw.SetTrait(TRAIT_ID__MOVE, move.pos);
 }
 // AGP__Inst_SetMoveID
 void LineageExp::AGP__Inst_SetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst)
@@ -548,18 +549,15 @@ void LineageExp::AGP__Inst_SetMoveID(AGP__hardware_t &hw, const AGP__inst_t &ins
 // AGP__Inst_GetMoveXY
 void LineageExp::AGP__Inst_GetMoveXY(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
-  emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
-  const size_t move_x = dreamboard.GetPosX(move_id);
-  const size_t move_y = dreamboard.GetPosY(move_id);
-  hw.regs[inst.args[0]] =  move_x;
-  hw.regs[inst.args[1]] =  move_y;
+  const othello_idx_t move = GetOthelloIndex(hw.GetTrait(TRAIT_ID__MOVE));
+  hw.regs[inst.args[0]] =  move.x();
+  hw.regs[inst.args[1]] =  move.y();
 }
 // AGP__Inst_GetMoveID
 void LineageExp::AGP__Inst_GetMoveID(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   const size_t move_id = hw.GetTrait(TRAIT_ID__MOVE);
-  hw.regs[inst.args[0]] =  move_id;
+  hw.regs[inst.args[0]] = move_id;
 }
 // AGP__Inst_IsValidXY
 void LineageExp::AGP__Inst_IsValidXY_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
@@ -568,7 +566,7 @@ void LineageExp::AGP__Inst_IsValidXY_HW(AGP__hardware_t &hw, const AGP__inst_t &
   const player_t playerID = othello_dreamware->GetPlayerID();
   const size_t move_x = hw.regs[inst.args[0]];
   const size_t move_y = hw.regs[inst.args[1]];
-  const int valid = (int)dreamboard.IsValidMove(playerID, move_x, move_y);
+  const int valid = (int)dreamboard.IsValidMove(playerID, {move_x, move_y});
   hw.regs[inst.args[2]] = valid;
 }
 // AGP__Inst_IsValidID_HW
@@ -576,8 +574,8 @@ void LineageExp::AGP__Inst_IsValidID_HW(AGP__hardware_t &hw, const AGP__inst_t &
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const player_t playerID = othello_dreamware->GetPlayerID();
-  const size_t move_id = hw.regs[inst.args[0]];
-  const int valid = (int)dreamboard.IsValidMove(playerID, move_id);
+  const othello_idx_t move = GetOthelloIndex(hw.regs[inst.args[0]]);
+  const int valid = (int)dreamboard.IsValidMove(playerID, move);
   hw.regs[inst.args[1]] = valid;
 }
 // AGP__Inst_IsValidXY
@@ -587,7 +585,7 @@ void LineageExp::AGP__Inst_IsValidOppXY_HW(AGP__hardware_t &hw, const AGP__inst_
   const player_t playerID = dreamboard.GetOpponent(othello_dreamware->GetPlayerID());
   const size_t move_x = hw.regs[inst.args[0]];
   const size_t move_y = hw.regs[inst.args[1]];
-  const int valid = (int)dreamboard.IsValidMove(playerID, move_x, move_y);
+  const int valid = (int)dreamboard.IsValidMove(playerID, {move_x, move_y});
   hw.regs[inst.args[2]] = valid;
 }
 // AGP__Inst_IsValidID_HW
@@ -595,8 +593,8 @@ void LineageExp::AGP__Inst_IsValidOppID_HW(AGP__hardware_t &hw, const AGP__inst_
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const player_t playerID = dreamboard.GetOpponent(othello_dreamware->GetPlayerID());
-  const size_t move_id = hw.regs[inst.args[0]];
-  const int valid = (int)dreamboard.IsValidMove(playerID, move_id);
+  const othello_idx_t move = GetOthelloIndex(hw.regs[inst.args[0]]);
+  const int valid = (int)dreamboard.IsValidMove(playerID, move);
   hw.regs[inst.args[1]] = valid;
 }
 // AGP__Inst_AdjacentXY
@@ -606,26 +604,23 @@ void LineageExp::AGP__Inst_AdjacentXY(AGP__hardware_t &hw, const AGP__inst_t &in
   const size_t move_x = hw.regs[inst.args[0]];
   const size_t move_y = hw.regs[inst.args[1]];
   const facing_t dir  = IntToFacing(hw.regs[inst.args[2]]);
-  const int nID = dreamboard.GetNeighbor(move_x, move_y, dir);
-  if (nID == -1)
-  {
+  const othello_idx_t neighbor = dreamboard.GetNeighbor({move_x, move_y}, dir);
+  if (!neighbor.IsValid()) {
     hw.regs[inst.args[0]] = AGENT_VIEW__ILLEGAL_ID;
     hw.regs[inst.args[1]] = AGENT_VIEW__ILLEGAL_ID;
-  }
-  else
-  {
-    hw.regs[inst.args[0]] = dreamboard.GetPosX(nID);
-    hw.regs[inst.args[1]] = dreamboard.GetPosY(nID);
+  } else {
+    hw.regs[inst.args[0]] = neighbor.x();
+    hw.regs[inst.args[1]] = neighbor.y();
   }
 }
 // AGP__Inst_AdjacentID
 void LineageExp::AGP__Inst_AdjacentID(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = hw.regs[inst.args[0]];
+  const othello_idx_t move = GetOthelloIndex(hw.regs[inst.args[0]]);
   const facing_t dir  = IntToFacing(hw.regs[inst.args[1]]);
-  const int nID = dreamboard.GetNeighbor(move_id, dir);
-  (nID == -1) ? hw.regs[inst.args[0]] = AGENT_VIEW__ILLEGAL_ID : hw.regs[inst.args[0]] = nID;
+  const othello_idx_t neighbor = dreamboard.GetNeighbor(move, dir);
+  hw.regs[inst.args[0]] = (!neighbor.IsValid()) ? AGENT_VIEW__ILLEGAL_ID : neighbor.pos;
 }
 // AGP_Inst_ValidMoveCnt_HW
 void LineageExp::AGP__Inst_ValidMoveCnt_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
@@ -648,27 +643,20 @@ void LineageExp::AGP__Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__in
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = hw.regs[inst.args[0]];
   const size_t move_y = hw.regs[inst.args[1]];
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
   // If inputs are garbage, let the caller know.
-  if (dreamboard.IsValidPos(move_x, move_y))
-  {
-    const player_t owner = dreamboard.GetPosOwner(move_x, move_y);
-    if (owner == playerID)
-    {
+  if (move.IsValid()) {
+    const player_t owner = dreamboard.GetPosOwner(move);
+    if (owner == playerID) {
       hw.regs[inst.args[2]] = AGENT_VIEW__SELF_ID;
-    }
-    else if (owner == oppID)
-    {
+    } else if (owner == oppID) {
       hw.regs[inst.args[2]] = AGENT_VIEW__OPP_ID;
-    }
-    else
-    {
+    } else {
       hw.regs[inst.args[2]] = AGENT_VIEW__OPEN_ID;
     }
-  }
-  else
-  {
+  } else {
     hw.regs[inst.args[2]] = AGENT_VIEW__ILLEGAL_ID;
   }
 }
@@ -676,28 +664,20 @@ void LineageExp::AGP__Inst_GetBoardValueXY_HW(AGP__hardware_t &hw, const AGP__in
 void LineageExp::AGP__Inst_GetBoardValueID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = hw.regs[inst.args[0]];
+  const othello_idx_t move = GetOthelloIndex(hw.regs[inst.args[0]]);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
   // If inputs are garbage, let the caller know.
-  if (dreamboard.IsValidPos(move_id))
-  {
-    const player_t owner = dreamboard.GetPosOwner(move_id);
-    if (owner == playerID)
-    {
+  if (move.IsValid()) {
+    const player_t owner = dreamboard.GetPosOwner(move);
+    if (owner == playerID) {
       hw.regs[inst.args[1]] = AGENT_VIEW__SELF_ID;
-    }
-    else if (owner == oppID)
-    {
+    } else if (owner == oppID) {
       hw.regs[inst.args[1]] = AGENT_VIEW__OPP_ID;
-    }
-    else
-    {
+    } else {
       hw.regs[inst.args[1]] = AGENT_VIEW__OPEN_ID;
     }
-  }
-  else
-  {
+  } else {
     hw.regs[inst.args[1]] = AGENT_VIEW__ILLEGAL_ID;
   }
 }
@@ -707,14 +687,12 @@ void LineageExp::AGP__Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)hw.regs[inst.args[0]];
   const size_t move_y = (size_t)hw.regs[inst.args[1]];
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_x, move_y))
-  {
-    dreamboard.DoMove(playerID, move_x, move_y);
+  if (dreamboard.IsValidMove(playerID, move)) {
+    dreamboard.DoMove(playerID, move);
     hw.regs[inst.args[2]] = 1;
-  }
-  else
-  {
+  } else {
     hw.regs[inst.args[2]] = 0;
   }
 }
@@ -722,15 +700,12 @@ void LineageExp::AGP__Inst_PlaceDiskXY_HW(AGP__hardware_t &hw, const AGP__inst_t
 void LineageExp::AGP__Inst_PlaceDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = hw.regs[inst.args[0]];
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_id))
-  {
-    dreamboard.DoMove(playerID, move_id);
+  const othello_idx_t move = GetOthelloIndex(hw.regs[inst.args[0]]);
+  if (dreamboard.IsValidMove(playerID, move)) {
+    dreamboard.DoMove(playerID, move);
     hw.regs[inst.args[1]] = 1;
-  }
-  else
-  {
+  } else {
     hw.regs[inst.args[1]] = 0;
   }
 }
@@ -740,11 +715,12 @@ void LineageExp::AGP__Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__ins
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)hw.regs[inst.args[0]];
   const size_t move_y = (size_t)hw.regs[inst.args[1]];
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_x, move_y))
+  if (dreamboard.IsValidMove(oppID, move))
   {
-    dreamboard.DoMove(oppID, move_x, move_y);
+    dreamboard.DoMove(oppID, move);
     hw.regs[inst.args[2]] = 1;
   }
   else
@@ -756,12 +732,12 @@ void LineageExp::AGP__Inst_PlaceOppDiskXY_HW(AGP__hardware_t &hw, const AGP__ins
 void LineageExp::AGP__Inst_PlaceOppDiskID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = (size_t)hw.regs[inst.args[0]];
+  const othello_idx_t move = GetOthelloIndex((size_t)hw.regs[inst.args[0]]);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_id))
+  if (dreamboard.IsValidMove(oppID, move))
   {
-    dreamboard.DoMove(oppID, move_id);
+    dreamboard.DoMove(oppID, move);
     hw.regs[inst.args[1]] = 1;
   }
   else
@@ -775,11 +751,11 @@ void LineageExp::AGP__Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)hw.regs[inst.args[0]];
   const size_t move_y = (size_t)hw.regs[inst.args[1]];
-  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_id))
+  if (dreamboard.IsValidMove(playerID, move))
   {
-    hw.regs[inst.args[2]] = dreamboard.GetFlipList(playerID, move_id).size();
+    hw.regs[inst.args[2]] = dreamboard.GetFlipCount(playerID, move);
   }
   else
   {
@@ -790,11 +766,11 @@ void LineageExp::AGP__Inst_FlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_t &
 void LineageExp::AGP__Inst_FlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = (size_t)hw.regs[inst.args[0]];
+  const othello_idx_t move = GetOthelloIndex((size_t)hw.regs[inst.args[0]]);
   const player_t playerID = othello_dreamware->GetPlayerID();
-  if (dreamboard.IsValidMove(playerID, move_id))
+  if (dreamboard.IsValidMove(playerID, move))
   {
-    hw.regs[inst.args[1]] = dreamboard.GetFlipList(playerID, move_id).size();
+    hw.regs[inst.args[1]] = dreamboard.GetFlipCount(playerID, move);
   }
   else
   {
@@ -807,12 +783,12 @@ void LineageExp::AGP__Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const size_t move_x = (size_t)hw.regs[inst.args[0]];
   const size_t move_y = (size_t)hw.regs[inst.args[1]];
-  const size_t move_id = dreamboard.GetPosID(move_x, move_y);
+  const othello_idx_t move(move_x, move_y);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_id))
+  if (dreamboard.IsValidMove(oppID, move))
   {
-    hw.regs[inst.args[2]] = dreamboard.GetFlipList(oppID, move_id).size();
+    hw.regs[inst.args[2]] = dreamboard.GetFlipCount(oppID, move);
   }
   else
   {
@@ -823,12 +799,12 @@ void LineageExp::AGP__Inst_OppFlipCntXY_HW(AGP__hardware_t &hw, const AGP__inst_
 void LineageExp::AGP__Inst_OppFlipCntID_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
-  const size_t move_id = (size_t)hw.regs[inst.args[0]];
+  const othello_idx_t move = GetOthelloIndex((size_t)hw.regs[inst.args[0]]);
   const player_t playerID = othello_dreamware->GetPlayerID();
   const player_t oppID = dreamboard.GetOpponent(playerID);
-  if (dreamboard.IsValidMove(oppID, move_id))
+  if (dreamboard.IsValidMove(oppID, move))
   {
-    hw.regs[inst.args[1]] = dreamboard.GetFlipList(oppID, move_id).size();
+    hw.regs[inst.args[1]] = dreamboard.GetFlipCount(oppID, move);
   }
   else
   {
@@ -840,7 +816,7 @@ void LineageExp::AGP__Inst_FrontierCnt_HW(AGP__hardware_t &hw, const AGP__inst_t
 {
   emp::Othello &dreamboard = othello_dreamware->GetActiveDreamOthello();
   const player_t playerID = othello_dreamware->GetPlayerID();
-  hw.regs[inst.args[0]] = dreamboard.GetFrontierPosCnt(playerID);
+  hw.regs[inst.args[0]] = dreamboard.CountFrontierPos(playerID);
 }
 // AGP_Inst_ResetBoard_HW
 void LineageExp::AGP__Inst_ResetBoard_HW(AGP__hardware_t &hw, const AGP__inst_t &inst)
