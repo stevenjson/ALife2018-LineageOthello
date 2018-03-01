@@ -32,6 +32,8 @@
 #include "OthelloHW.h"
 #include "lineage-config.h"
 
+// TODO: how do I want to handle the fact that Index can't take on illegal position
+
 // @constants
 constexpr int TESTCASE_FILE__DARK_ID = 1;
 constexpr int TESTCASE_FILE__LIGHT_ID = -1;
@@ -64,6 +66,7 @@ constexpr size_t POP_INITIALIZATION_METHOD_ID__ANCESTOR_FILE = 0;
 constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 
 constexpr size_t OTHELLO_BOARD_WIDTH = 8;
+constexpr size_t OTHELLO_BOARD_NUM_CELLS = OTHELLO_BOARD_WIDTH * OTHELLO_BOARD_WIDTH;
 
 const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips"};
 
@@ -81,7 +84,6 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
       std::function<int(void)> mut_fun = [&world, mut_type]() { return emp::CountMuts(world.GetGenotypeAt(0), mut_type); };
       file.AddFun(mut_fun, "dominant_"+mut_type+"_mutation_count", "sum of "+mut_type+" mutations along dominant organism's lineage");
     }
-
 
     std::function<int(void)> dom_lin_len = [&world](){
       return emp::LineageLength(world.GetGenotypeAt(0));
@@ -118,6 +120,7 @@ public:
   // @aliases
   using player_t = emp::Othello::Player;
   using facing_t = emp::Othello::Facing;
+  using othello_idx_t = emp::Othello::Index;
   // SignalGP-specific type aliases:
   using SGP__hardware_t = emp::EventDrivenGP_AW<SGP__TAG_WIDTH>;
   using SGP__program_t = SGP__hardware_t::Program;
@@ -193,7 +196,7 @@ public:
   };
 
   struct TestcaseOutput {
-    size_t expert_move;             ///< What move did the expert make on the associated testcase?
+    othello_idx_t expert_move;             ///< What move did the expert make on the associated testcase?
     emp::vector<size_t> move_valid; ///< Is a given move valid (1) or not (0)?
   };
 
@@ -321,8 +324,13 @@ protected:
   std::function<size_t(void)> get_eval_agent_move;              ///< Should return eval_hardware's current move selection. Hardware-specific!
   std::function<bool(void)> get_eval_agent_done;                ///< Should return whether or not eval_hardware is done. Hardware-specific!
   std::function<player_t(void)> get_eval_agent_playerID;          ///< Should return eval_hardware's current playerID. Hardware-specific!
-  std::function<double(test_case_t &, size_t)> calc_test_score; ///< Given a test case and a move, what is the appropriate score? Shared between hardware types.
+  std::function<double(test_case_t &, othello_idx_t)> calc_test_score; ///< Given a test case and a move, what is the appropriate score? Shared between hardware types.
 
+  /// Get othello board index given *any* position.
+  /// If position can't be used to make an Othello::Index struct, clamp it so that it can.
+  othello_idx_t GetOthelloIndex(size_t pos) {
+    return (pos > OTHELLO_BOARD_NUM_CELLS) ? OTHELLO_BOARD_NUM_CELLS : pos;
+  }
   /// Evaluate GP move (hardware-agnostic).
   /// Requires that the following signals/functors be setup:
   ///  - begin_turn_sig
@@ -330,7 +338,7 @@ protected:
   ///  - get_eval_agent_done
   ///  - get_eval_agent_move
   ///  - get_eval_agent_playerID
-  size_t EvalMove__GP(emp::Othello & game, bool promise_validity=false) {
+  othello_idx_t EvalMove__GP(emp::Othello & game, bool promise_validity=false) {
     // Signal begin_turn
     begin_turn_sig.Trigger(game);
     // Run agent until time is up or until agent indicates it is done evaluating.
@@ -338,36 +346,36 @@ protected:
       agent_advance_sig.Trigger();
     }
     // Extract agent's move.
-    size_t move = get_eval_agent_move();
+    othello_idx_t move = GetOthelloIndex(get_eval_agent_move());
     // Did we promise a valid move?
     if (promise_validity) {
       // Double-check move validity.
       const player_t playerID = get_eval_agent_playerID();
       if (!game.IsValidMove(playerID, move)) {
         // Move is not valid. Needs to be fixed, so set it to the nearest valid move.
-        emp::vector<size_t> valid_moves = game.GetMoveOptions(playerID);
-        const size_t move_x = game.GetPosX(move);
-        const size_t move_y = game.GetPosY(move);
+        emp::vector<othello_idx_t> valid_moves = game.GetMoveOptions(playerID);
+        const size_t move_x = move.x();
+        const size_t move_y = move.y();
         size_t new_move_x = 0;
         size_t new_move_y = 0;
         size_t sq_move_dist = game.GetBoard().size() * game.GetBoard().size();
         for (size_t i = 0; i < valid_moves.size(); ++i) {
-          const size_t proposed_x = game.GetPosX(valid_moves[i]);
-          const size_t proposed_y = game.GetPosY(valid_moves[i]);
+          const size_t proposed_x = valid_moves[i].x();
+          const size_t proposed_y = valid_moves[i].y();
           const size_t proposed_dist = std::pow(proposed_x - move_x, 2) + std::pow(proposed_y - move_y, 2);
           if (proposed_dist < sq_move_dist) {
             new_move_x = proposed_x; new_move_y = proposed_y; sq_move_dist = proposed_dist;
           }
         }
-        move = game.GetPosID(new_move_x, new_move_y);
+        move.Set(new_move_x, new_move_y);
       }
     }
     return move;
   }
 
   /// Returns a random valid move.
-  size_t EvalMove__Random(emp::Othello & game, player_t playerID, bool promise_validity=false) {
-    emp::vector<size_t> options = game.GetMoveOptions(playerID);
+  othello_idx_t EvalMove__Random(emp::Othello & game, player_t playerID, bool promise_validity=false) {
+    emp::vector<othello_idx_t> options = game.GetMoveOptions(playerID);
     return options[random->GetUInt(0, options.size())];
   }
 
@@ -379,7 +387,7 @@ protected:
     TestcaseInput input;
     emp::Othello & game = input.game;
     // test_case_strings expectation: game_board_positions, round, playerID, expert_move
-    emp_assert(test_case_strings.size() == (game.GetBoardCells() + 3));
+    emp_assert(test_case_strings.size() == (game.GetNumCells() + 3));
 
     // Get the round.
     size_t rnd = std::atoi(test_case_strings.back().c_str());
@@ -416,9 +424,9 @@ protected:
 
     // Fill out testcase output.
     TestcaseOutput output;
-    output.expert_move = expert_move;
-    emp::vector<size_t> valid_moves = game.GetMoveOptions(playerID);
-    output.move_valid.resize(game.GetBoardCells());   // Resize bit vector to match board size.
+    output.expert_move.pos = expert_move;
+    emp::vector<othello_idx_t> valid_moves = game.GetMoveOptions(playerID);
+    output.move_valid.resize(game.GetNumCells());   // Resize bit vector to match board size.
     for (size_t i = 0; i < output.move_valid.size(); ++i) output.move_valid[i] = 0;
     for (size_t i = 0; i < valid_moves.size(); ++i) {
       output.move_valid[valid_moves[i]] = 1;
@@ -454,7 +462,7 @@ protected:
     // If we haven't cached this test case yet, go ahead and calculate it.
     if (!testcase_eval_cache[cID]) {
       test_case_t & test = testcases[testID];
-      size_t move = EvalMove__GP(test.GetInput().game, false);
+      othello_idx_t move = EvalMove__GP(test.GetInput().game, false);
       double score = calc_test_score(test, move);
       testcase_eval_cache[cID] = 1;
       testcase_score_cache[cID] = score;
@@ -569,11 +577,11 @@ public:
     } std::cout << std::endl;
 
     // Given a test case and a move, how are we scoring an agent?
-    calc_test_score = [this](test_case_t & test, size_t move) {
+    calc_test_score = [this](test_case_t & test, othello_idx_t move) {
       // Score move given test.
       if (move == test.GetOutput().expert_move) {
         return SCORE_MOVE__EXPERT_MOVE_VALUE;
-      } else if (move >= test.GetOutput().move_valid.size()) {
+      } else if (!move.IsValid()) {
         return SCORE_MOVE__ILLEGAL_MOVE_VALUE;
       } else {
         // std::cout << "Move is in a valid position. Is it a valid move? " << test.GetOutput().move_valid[move] << std::endl;
