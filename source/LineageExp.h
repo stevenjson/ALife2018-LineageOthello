@@ -245,6 +245,7 @@ protected:
   // SignalGP program group parameters
   size_t SGP_FUNCTION_LEN;
   size_t SGP_FUNCTION_CNT;
+  size_t SGP_PROG_MAX_LENGTH;
   // SignalGP Hardware Group parameters
   size_t SGP_HW_MAX_CORES;
   size_t SGP_HW_MAX_CALL_DEPTH;
@@ -253,6 +254,11 @@ protected:
   int SGP_PROG_MAX_ARG_VAL;
   double SGP_PER_BIT__TAG_BFLIP_RATE;
   double SGP_PER_INST__SUB_RATE;
+  bool SGP_VARIABLE_LENGTH;
+  double SGP_PER_INST__INS_RATE;
+  double SGP_PER_INST__DEL_RATE;
+  double SGP_PER_FUNC__FUNC_DUP_RATE;
+  double SGP_PER_FUNC__FUNC_DEL_RATE;
   // AvidaGP Program group parameters
   size_t AGP_GENOME_SIZE;
   // AvidaGP Mutation Group parameters
@@ -527,6 +533,7 @@ public:
     OTHELLO_HW_BOARDS = config.OTHELLO_HW_BOARDS();
     SGP_FUNCTION_LEN = config.SGP_FUNCTION_LEN();
     SGP_FUNCTION_CNT = config.SGP_FUNCTION_CNT();
+    SGP_PROG_MAX_LENGTH = config.SGP_PROG_MAX_LENGTH();
     SGP_HW_MAX_CORES = config.SGP_HW_MAX_CORES();
     SGP_HW_MAX_CALL_DEPTH = config.SGP_HW_MAX_CALL_DEPTH();
     SGP_HW_MIN_BIND_THRESH = config.SGP_HW_MIN_BIND_THRESH();
@@ -534,6 +541,11 @@ public:
     SGP_PER_BIT__TAG_BFLIP_RATE = config.SGP_PER_BIT__TAG_BFLIP_RATE();
     SGP_PER_INST__SUB_RATE = config.SGP_PER_INST__SUB_RATE();
     AGP_PER_INST__SUB_RATE = config.AGP_PER_INST__SUB_RATE();
+    SGP_VARIABLE_LENGTH = config.SGP_VARIABLE_LENGTH();
+    SGP_PER_INST__INS_RATE = config.SGP_PER_INST__INS_RATE();
+    SGP_PER_INST__DEL_RATE = config.SGP_PER_INST__DEL_RATE();
+    SGP_PER_FUNC__FUNC_DUP_RATE = config.SGP_PER_FUNC__FUNC_DUP_RATE();
+    SGP_PER_FUNC__FUNC_DEL_RATE = config.SGP_PER_FUNC__FUNC_DEL_RATE();
     SYSTEMATICS_INTERVAL = config.SYSTEMATICS_INTERVAL();
     FITNESS_INTERVAL = config.FITNESS_INTERVAL();
     POP_SNAPSHOT_INTERVAL = config.POP_SNAPSHOT_INTERVAL();
@@ -714,7 +726,8 @@ public:
   void ConfigAGP_InstLib();
 
   // Mutation functions
-  size_t SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd);
+  size_t SGP__Mutate_FixedLength(SignalGPAgent & agent, emp::Random & rnd);
+  size_t SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random & rnd);
   size_t AGP__Mutate(AvidaGPAgent & agent, emp::Random & rnd);
 
   // Population snapshot functions
@@ -1016,7 +1029,7 @@ void LineageExp::SGP__Debugging_Analysis() {
 
 /// Mutate an SGP agent's program. Only does tag mutations, instruction substitutions, and
 /// argument substitutions. (maintains constand-length genomes)
-size_t LineageExp::SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd) {
+size_t LineageExp::SGP__Mutate_FixedLength(SignalGPAgent & agent, emp::Random & rnd) {
   SGP__program_t & program = agent.GetGenome();
   size_t mut_cnt = 0;
   for (size_t i = 0; i < MUTATION_TYPES.size(); ++i) {
@@ -1063,6 +1076,122 @@ size_t LineageExp::SGP__Mutate(SignalGPAgent & agent, emp::Random & rnd) {
   return mut_cnt;
 }
 
+
+size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random & rnd) {
+  SGP__program_t & program = agent.GetGenome();
+  size_t mut_cnt = 0;
+  // Duplicate a function?
+  size_t expected_prog_len = program.GetInstCnt();
+  size_t old_content_wall = program.GetSize(); ///< First position (or invalid position) after old content.
+  size_t fID = 0;
+  while (fID < old_content_wall) {
+    bool dup = rnd.P(SGP_PER_FUNC__FUNC_DUP_RATE);
+    bool del = rnd.P(SGP_PER_FUNC__FUNC_DEL_RATE);
+    if (dup && del) { dup = false; del = false; } // If we're about to dup and del, don't do anything.
+    // Do we duplicate?
+    if (dup && ((expected_prog_len + program[fID].GetSize()) <= SGP_PROG_MAX_LENGTH)) {
+      // Adjust expected program length (total instructions).
+      expected_prog_len += program[fID].GetSize();
+      // Duplication.
+      program.PushFunction(program[fID]);
+    // Do we delete?
+    } else if (del && program.GetSize() > 1) {
+      // Adjust expected program length (total instructions).
+      expected_prog_len -= program[fID].GetSize();
+      const size_t mfID = program.GetSize()-1;
+      // Deletion.
+      program[fID] = program[mfID];
+      program.program.resize(mfID);
+      // Should we adjust the wall?
+      if (mfID < old_content_wall) {
+        // We're moving from within the wall, adjust wall.
+        --old_content_wall;
+        --fID;
+      }
+    }
+    ++fID;
+  }
+  // For each function...
+  for (size_t fID = 0; fID < program.GetSize(); ++fID) {
+    // Mutate affinity
+    for (size_t i = 0; i < program[fID].GetAffinity().GetSize(); ++i) {
+      SGP__tag_t & aff = program[fID].GetAffinity();
+      if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
+        ++mut_cnt;
+        aff.Set(i, !aff.Get(i));
+      }
+    }
+
+    // Substitution mutations?
+    for (size_t i = 0; i < program[fID].GetSize(); ++i) {
+      SGP__inst_t & inst = program[fID][i];
+      // Mutate affinity (even if it doesn't have one).
+      for (size_t k = 0; k < inst.affinity.GetSize(); ++k) {
+        if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
+          ++mut_cnt;
+          inst.affinity.Set(k, !inst.affinity.Get(k));
+        }
+      }
+      // Mutate instruction.
+      if (rnd.P(SGP_PER_INST__SUB_RATE)) {
+        ++mut_cnt;
+        inst.id = rnd.GetUInt(program.GetInstLib()->GetSize());
+      }
+      // Mutate arguments (even if they aren't relevent to instruction).
+      for (size_t k = 0; k < SGP__hardware_t::MAX_INST_ARGS; ++k) {
+        if (rnd.P(SGP_PER_INST__SUB_RATE)) {
+          ++mut_cnt;
+          inst.args[k] = rnd.GetInt(SGP_PROG_MAX_ARG_VAL);
+        }
+      }
+    }
+    // Insertion/deletion mutations?
+    // - Compute insertions.
+    int num_ins = rnd.GetRandBinomial(program[fID].GetSize(), SGP_PER_INST__INS_RATE);
+    // Ensure that insertions don't exceed maximum program length.
+    if ((num_ins + expected_prog_len) > SGP_PROG_MAX_LENGTH) {
+      num_ins = SGP_PROG_MAX_LENGTH - expected_prog_len;
+    }
+    expected_prog_len += num_ins;
+
+    // Do we need to do any insertions or deletions?
+    if (num_ins > 0 || SGP_PER_INST__DEL_RATE > 0.0) {
+      emp::vector<size_t> ins_locs = emp::RandomUIntVector(rnd, num_ins, 0, program[fID].GetSize());
+      if (ins_locs.size()) std::sort(ins_locs.begin(), ins_locs.end(), std::greater<size_t>());
+      SGP__hardware_t::Function new_fun(program[fID].GetAffinity());
+      size_t rhead = 0;
+      size_t num_dels = 0;
+      while (rhead < program[fID].GetSize()) {
+        if (ins_locs.size()) {
+          if (rhead >= ins_locs.back()) {
+            // Insert a random instruction.
+            new_fun.PushInst(rnd.GetUInt(program.GetInstLib()->GetSize()),
+                             rnd.GetInt(SGP_PROG_MAX_ARG_VAL),
+                             rnd.GetInt(SGP_PROG_MAX_ARG_VAL),
+                             rnd.GetInt(SGP_PROG_MAX_ARG_VAL),
+                             SGP__tag_t());
+            new_fun.inst_seq.back().affinity.Randomize(rnd);
+            ++mut_cnt;
+            ins_locs.pop_back();
+            continue;
+          }
+        }
+        // Do we delete this instruction?
+        if (rnd.P(SGP_PER_INST__DEL_RATE) && num_dels < (program[fID].GetSize() - 1)) {
+          ++mut_cnt;
+          ++num_dels;
+          --expected_prog_len;
+        } else {
+          new_fun.PushInst(program[fID][rhead]);
+        }
+        ++rhead;
+      }
+      program[fID] = new_fun;
+    }
+  }
+  return mut_cnt;
+}
+
 void LineageExp::SGP_Snapshot_SingleFile(size_t update) {
   std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
   mkdir(snapshot_dir.c_str(), ACCESSPERMS);
@@ -1082,8 +1211,15 @@ void LineageExp::ConfigSGP() {
   // Configure the world.
   sgp_world->Reset();
   sgp_world->SetWellMixed(true);
-  // NOTE: second argument specifies that we're not mutating the first thing int the pop (we're doing elite selection in all of our stuff).
-  sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate(agent, rnd); }, 1);
+
+  // Setup mutation function.
+  if (SGP_VARIABLE_LENGTH) {
+    sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate_VariableLength(agent, rnd); }, 1);
+  } else {
+    // NOTE: second argument specifies that we're not mutating the first thing int the pop (we're doing elite selection in all of our stuff).
+    sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate_FixedLength(agent, rnd); }, 1);
+  }
+
   sgp_world->SetFitFun([this](SignalGPAgent & agent) { return this->CalcFitness(agent); });
   sgp_world->OnGenotypeKnown([this](emp::Ptr<SGP__genotype_t> genotype, size_t pos) {
     // std::cout << "OnGenotypeKnown Mutations!" << std::endl;
