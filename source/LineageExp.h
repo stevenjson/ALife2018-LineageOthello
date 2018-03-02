@@ -32,8 +32,6 @@
 #include "OthelloHW.h"
 #include "lineage-config.h"
 
-// TODO: how do I want to handle the fact that Index can't take on illegal position
-
 // @constants
 constexpr int TESTCASE_FILE__DARK_ID = 1;
 constexpr int TESTCASE_FILE__LIGHT_ID = -1;
@@ -213,6 +211,14 @@ public:
     emp::vector<size_t> move_valid; ///< Is a given move valid (1) or not (0)?
   };
 
+  struct Phenotype {
+    emp::vector<double> testcase_scores;
+    size_t illegal_move_total;
+    size_t valid_move_total;
+    size_t expert_move_total;
+    double aggregate_score;
+  };
+
   // More aliases
   using phenotype_t = emp::vector<double>;
   using data_t = emp::mut_landscape_info<phenotype_t>;
@@ -288,6 +294,7 @@ protected:
   size_t update;                ///< Current update/generation.
   size_t eval_time;             ///< Current evaluation time point (within an agent's turn).
   size_t OTHELLO_MAX_ROUND_CNT; ///< What are the maximum number of rounds in game?
+  size_t best_agent_id;
 
   // Testcases
   TestcaseSet<TestcaseInput,TestcaseOutput> testcases; ///< Test cases are OthelloBoard ==> Expert move
@@ -299,9 +306,9 @@ protected:
   emp::vector<std::function<double(SignalGPAgent &)>> sgp_resource_fit_set; ///< Fit set for SGP resource selection.
   emp::vector<std::function<double(AvidaGPAgent &)>> agp_resource_fit_set;  ///< Fit set for AGP resource selection.
 
-  emp::vector<size_t> testcase_eval_cache;    ///< Place to store whether or not we've evaluated a particular testcase.
-  emp::vector<double> testcase_score_cache;   ///< Place to store testcase scores.
-  emp::vector<double> agent_score_cache;      ///< Place to store overall agent scores.
+  // emp::vector<double> testcase_score_cache;   ///< Place to store testcase scores.
+  // emp::vector<double> agent_score_cache;      ///< Place to store overall agent scores.
+  emp::vector<Phenotype> agent_phen_cache;
 
   mut_count_t last_mutation;
 
@@ -336,7 +343,7 @@ protected:
   // Systematics-specific signals.
   emp::Signal<void(size_t)> do_pop_snapshot_sig;    ///< Triggered if we should take a snapshot of the population (as defined by POP_SNAPSHOT_INTERVAL). Should call appropriate functions to take snapshot.
   emp::Signal<void(size_t pos, double)> record_fit_sig;        ///< Trigger signal before organism gives birth.
-  emp::Signal<void(size_t pos, phenotype_t)> record_phen_sig;  ///< Trigger signal before organism gives birth.
+  emp::Signal<void(size_t pos, const phenotype_t &)> record_phen_sig;  ///< Trigger signal before organism gives birth.
   // Agent evaluation signals.
   emp::Signal<void(const emp::Othello &)> begin_turn_sig; ///< Called at beginning of agent turn during evaluation.
   emp::Signal<void(void)> agent_advance_sig;              ///< Called during agent's turn. Should cause agent to advance by a single timestep.
@@ -454,45 +461,44 @@ protected:
     return test_case_t(input, output);
   }
 
-  /// Get appropriate score cache ID.
-  size_t GetCacheID(size_t agentID, size_t testID) {
-    return (agentID * testcases.GetSize()) + testID;
-  }
-
   /// Run all tests on current eval hardware.
   void Evaluate(Agent & agent) {
     const size_t id = agent.GetID();
-    // Evaluate agent on all test cases.
+    Phenotype & phen = agent_phen_cache[id];
+    // Reset score and various phenotype information.
     double score = 0.0;
-    emp::vector<double> agent_scores(testcases.GetSize());
+    phen.illegal_move_total = 0;
+    phen.valid_move_total = 0;
+    phen.expert_move_total = 0;
+    // Evaluate agent on all test cases.
     for (cur_testcase = 0; cur_testcase < testcases.GetSize(); ++cur_testcase) {
       const double test_score = this->RunTest(id, cur_testcase);
-      agent_scores[cur_testcase] = test_score;
+      phen.testcase_scores[cur_testcase] = test_score;
+      if (test_score == SCORE_MOVE__EXPERT_MOVE_VALUE) {
+        phen.expert_move_total += 1;
+        phen.valid_move_total += 1;
+      } else if (test_score == SCORE_MOVE__LEGAL_MOVE_VALUE) {
+        phen.valid_move_total += 1;
+      } else if (test_score == SCORE_MOVE__ILLEGAL_MOVE_VALUE){
+        phen.illegal_move_total += 1;
+      } else {
+        std::cout << "Trying to record phenotype information about move types. Something went horribly wrong." << std::endl;
+        exit(-1);
+      }
       score += test_score;
     }
-    agent_score_cache[id] = score;
+    phen.aggregate_score = score;
     // Trigger systematics-recording functions:
     record_fit_sig.Trigger(id, score);
-    record_phen_sig.Trigger(id, agent_scores);
+    record_phen_sig.Trigger(id, phen.testcase_scores); // TODO: pass reference instead of full vector.
   }
 
   /// Run test return test score.
   double RunTest(size_t agentID, size_t testID) {
-    const size_t cID = GetCacheID(agentID, testID);
     // If we haven't cached this test case yet, go ahead and calculate it.
-    if (!testcase_eval_cache[cID]) {
-      test_case_t & test = testcases[testID];
-      othello_idx_t move = EvalMove__GP(test.GetInput().game, false);
-      double score = calc_test_score(test, move);
-      testcase_eval_cache[cID] = 1;
-      testcase_score_cache[cID] = score;
-    }
-    return testcase_score_cache[cID];
-  }
-
-  /// Clear cache.
-  void ClearCache() {
-    for (size_t i = 0; i < testcase_eval_cache.size(); ++i) { testcase_eval_cache[i] = 0; }
+    test_case_t & test = testcases[testID];
+    othello_idx_t move = EvalMove__GP(test.GetInput().game, false);
+    return calc_test_score(test, move);
   }
 
   facing_t IntToFacing(int dir) {
@@ -512,7 +518,7 @@ protected:
 
 public:
   LineageExp(const LineageConfig & config)   // @constructor
-    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), testcases(), cur_testcase(0), last_mutation(),
+    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), best_agent_id(0), testcases(), cur_testcase(0), last_mutation(),
       sgp_muller_file(DATA_DIRECTORY + "muller_data.dat"),
       agp_muller_file(DATA_DIRECTORY + "muller_data.dat")
   {
@@ -578,9 +584,16 @@ public:
     testcases.LoadTestcases(TEST_CASE_FILE);
 
     // Setup testcase cache.
-    testcase_eval_cache.resize(POP_SIZE * testcases.GetSize(), 0);
-    testcase_score_cache.resize(POP_SIZE * testcases.GetSize(), 0.0);
-    agent_score_cache.resize(POP_SIZE, 0.0);
+    // testcase_score_cache.resize(POP_SIZE * testcases.GetSize(), 0.0);
+    // agent_score_cache.resize(POP_SIZE, 0.0);
+    agent_phen_cache.resize(POP_SIZE);
+    for (size_t i = 0; i < agent_phen_cache.size(); ++i) {
+      agent_phen_cache[i].testcase_scores.resize(testcases.GetSize(), 0);
+      agent_phen_cache[i].illegal_move_total = 0; //TODO: reset these between evaluations
+      agent_phen_cache[i].valid_move_total = 0;
+      agent_phen_cache[i].expert_move_total = 0;
+      agent_phen_cache[i].aggregate_score = 0;
+    }
 
     // Organize testcase IDs into phases.
     // - How many phases are we working with?
@@ -626,7 +639,6 @@ public:
       } else if (!move.IsValid()) {
         return SCORE_MOVE__ILLEGAL_MOVE_VALUE;
       } else {
-        // std::cout << "Move is in a valid position. Is it a valid move? " << test.GetOutput().move_valid[move] << std::endl;
         return (test.GetOutput().move_valid[move]) ? SCORE_MOVE__LEGAL_MOVE_VALUE : SCORE_MOVE__ILLEGAL_MOVE_VALUE;
       }
     };
@@ -726,7 +738,7 @@ public:
 
   // Fitness function(s)
   double CalcFitness(Agent & agent) {
-    return agent_score_cache[agent.GetID()];
+    return agent_phen_cache[agent.GetID()].aggregate_score;
   }
 
   // Config functions. These do all of the hardware-specific experiment setup/configuration.
@@ -743,6 +755,42 @@ public:
   // Population snapshot functions
   void SGP_Snapshot_SingleFile(size_t update);
   void AGP_Snapshot_SingleFile(size_t update);
+
+  template <typename WORLD_TYPE>
+  emp::World_file & AddBestPhenotypeFile(WORLD_TYPE & world, const std::string & fpath="best_phenotype.csv") {
+      auto & file = world.SetupFile(fpath);
+
+      std::function<size_t(void)> get_update = [&world](){ return world.GetUpdate(); };
+      file.AddFun(get_update, "update", "Update");
+
+      // NOTE: when this gets called, world->GetOrg(best_agent_id) is no longer accurate.
+      //       But... agent_phen_cache is still good to go.
+      std::function<double(void)> get_score = [&world, this]() {
+        Phenotype & best_phen = this->agent_phen_cache[this->best_agent_id];
+        return best_phen.aggregate_score;
+      };
+      file.AddFun(get_score, "score", "get best phenotype score from this update");
+
+      std::function<size_t(void)> get_illegal_total = [&world, this]() {
+        Phenotype & best_phen = this->agent_phen_cache[this->best_agent_id];
+        return best_phen.illegal_move_total;
+      };
+      file.AddFun(get_illegal_total, "illegal_move_total", "get total illegal moves made by best phenotype from this update");
+
+      std::function<size_t(void)> get_valid_total = [&world, this]() {
+        Phenotype & best_phen = this->agent_phen_cache[this->best_agent_id];
+        return best_phen.valid_move_total;
+      };
+      file.AddFun(get_valid_total, "valid_move_total", "get total valid moves made by best phenotype from this update");
+
+      std::function<size_t(void)> get_expert_total = [&world, this]() {
+        Phenotype & best_phen = this->agent_phen_cache[this->best_agent_id];
+        return best_phen.expert_move_total;
+      };
+      file.AddFun(get_expert_total, "expert_move_total", "get total expert moves made by best phenotype from this update");
+      file.PrintHeaderKeys();
+      return file;
+  }
 
   // SignalGP utility functions.
   void SGP__InitPopulation_Random();
@@ -1014,8 +1062,6 @@ void LineageExp::SGP__Debugging_Analysis() {
   analyze_prog.PrintProgramFull();
   std::cout << " -------------------------" << std::endl;
 
-  ClearCache();
-
   // Load program onto agent.
   SignalGPAgent our_hero(analyze_prog);
   our_hero.SetID(0);
@@ -1028,12 +1074,14 @@ void LineageExp::SGP__Debugging_Analysis() {
     score += test_score;
     // How did it do?
   }
-  agent_score_cache[our_hero.GetID()] = score;
+  Phenotype & phen =  agent_phen_cache[our_hero.GetID()];
+  // agent_score_cache[our_hero.GetID()] = score;
+  phen.aggregate_score = score;
 
   std::cout << "\n\nFINAL SCORE (total): " << score << std::endl;
   std::cout << "Test case scores: {";
   for (size_t i = 0; i < testcases.GetSize(); ++i) {
-    std::cout << "Test " << i << ": " << testcase_score_cache[GetCacheID(our_hero.GetID(), i)] << ", ";
+    std::cout << "Test " << i << ": " << phen.testcase_scores[i] << ", ";
   } std::cout << "}" << std::endl;
 }
 
@@ -1299,17 +1347,20 @@ void LineageExp::ConfigSGP() {
     emp::AddPhylodiversityFile(*sgp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    AddBestPhenotypeFile(*sgp_world, DATA_DIRECTORY+"best_phenotype.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
     sgp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) sgp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { sgp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
-    record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { sgp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
+    record_phen_sig.AddAction([this](size_t pos, const phenotype_t & phen) { sgp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
     do_pop_init_sig.Trigger();
   });
 
   // - Configure evaluation
+  // TODO: add dominant id tracking
   do_evaluation_sig.AddAction([this]() {
     double best_score = -32767;
+    best_agent_id = 0;
     for (size_t id = 0; id < sgp_world->GetSize(); ++id) {
       // std::cout << "Evaluating agent: " << id << std::endl;
       // Evaluate agent given by id.
@@ -1317,13 +1368,17 @@ void LineageExp::ConfigSGP() {
       our_hero.SetID(id);
       sgp_eval_hw->SetProgram(our_hero.GetGenome());
       this->Evaluate(our_hero);
-      if (agent_score_cache[id] > best_score) best_score = agent_score_cache[id];
+      Phenotype & phen = agent_phen_cache[id];
+      if (phen.aggregate_score > best_score) {
+        best_score = phen.aggregate_score;
+        best_agent_id = id;
+      }
     }
     std::cout << "Update: " << update << " Max score: " << best_score << std::endl;
   });
 
   // - Configure world upate.
-  do_world_update_sig.AddAction([this]() { sgp_world->Update(); this->ClearCache(); });
+  do_world_update_sig.AddAction([this]() { sgp_world->Update(); });
 
   // do_pop_snapshot
   do_pop_snapshot_sig.AddAction([this](size_t update) { this->SGP_Snapshot_SingleFile(update); });
@@ -1340,7 +1395,8 @@ void LineageExp::ConfigSGP() {
       sgp_lexicase_fit_set.resize(0);
       for (size_t i = 0; i < testcases.GetSize(); ++i) {
         sgp_lexicase_fit_set.push_back([i, this](SignalGPAgent & agent) {
-          return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+          Phenotype & phen = agent_phen_cache[agent.GetID()];
+          return phen.testcase_scores[i];
         });
       }
       do_selection_sig.AddAction([this]() {
@@ -1361,7 +1417,7 @@ void LineageExp::ConfigSGP() {
               emp::vector<size_t> & phasecases = testcases_by_phase[i];
               // Aggregate all relevant test scores.
               for (size_t j = 0; j < phasecases.size(); ++j) {
-                score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+                score += agent_phen_cache[agent.GetID()].testcase_scores[phasecases[j]];
               }
               return score;
             });
@@ -1372,7 +1428,7 @@ void LineageExp::ConfigSGP() {
           // Add a resource fit function for each testcase.
           for (size_t i = 0; i < testcases.GetSize(); ++i) {
             sgp_resource_fit_set.push_back([i, this](SignalGPAgent & agent) {
-              return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+              return agent_phen_cache[agent.GetID()].testcase_scores[i];
             });
           }
           break;
@@ -1528,14 +1584,14 @@ void LineageExp::ConfigAGP() {
     sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
     auto & fit_file = agp_world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
-
     emp::AddPhylodiversityFile(*agp_world, DATA_DIRECTORY + "phylodiversity.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     emp::AddLineageMutationFile(*agp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     AddDominantFile(*agp_world, DATA_DIRECTORY + "dominant.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
+    AddBestPhenotypeFile(*agp_world, DATA_DIRECTORY+"best_phenotype.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     agp_muller_file = emp::AddMullerPlotFile(*agp_world, DATA_DIRECTORY + "muller_data.dat");
     agp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) agp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { agp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
-    record_phen_sig.AddAction([this](size_t pos, phenotype_t phen) { agp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
+    record_phen_sig.AddAction([this](size_t pos, const phenotype_t & phen) { agp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
     do_pop_init_sig.Trigger();
   });
@@ -1543,6 +1599,7 @@ void LineageExp::ConfigAGP() {
   // - Configure evaluation
   do_evaluation_sig.AddAction([this]() {
     double best_score = -32767;
+    best_agent_id = 0;
     for (size_t id = 0; id < agp_world->GetSize(); ++id)
     {
       //std::cout << "Evaluating agent: " << id << std::endl;
@@ -1551,8 +1608,11 @@ void LineageExp::ConfigAGP() {
       our_hero.SetID(id);
       agp_eval_hw->SetGenome(our_hero.GetGenome());
       this->Evaluate(our_hero);
-      if (agent_score_cache[id] > best_score)
-        best_score = agent_score_cache[id];
+      Phenotype & phen = agent_phen_cache[id];
+      if (phen.aggregate_score > best_score) {
+        best_score = phen.aggregate_score;
+        best_agent_id = id;
+      }
     }
     std::cout << "Update: " << update << " Max score: " << best_score << std::endl;
   });
@@ -1569,7 +1629,7 @@ void LineageExp::ConfigAGP() {
     agp_lexicase_fit_set.resize(0);
     for (size_t i = 0; i < testcases.GetSize(); ++i) {
       agp_lexicase_fit_set.push_back([i, this](AvidaGPAgent & agent) {
-        return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+        return agent_phen_cache[agent.GetID()].testcase_scores[i];
       });
     }
     do_selection_sig.AddAction([this]() {
@@ -1590,7 +1650,7 @@ void LineageExp::ConfigAGP() {
             emp::vector<size_t> & phasecases = testcases_by_phase[i];
             // Aggregate all relevant test scores.
             for (size_t j = 0; j < phasecases.size(); ++j) {
-              score += testcase_score_cache[this->GetCacheID(agent.GetID(), phasecases[j])];
+              score += agent_phen_cache[agent.GetID()].testcase_scores[phasecases[j]];
             }
             return score;
           });
@@ -1601,7 +1661,7 @@ void LineageExp::ConfigAGP() {
         // Add a resource fit function for each testcase.
         for (size_t i = 0; i < testcases.GetSize(); ++i) {
           agp_resource_fit_set.push_back([i, this](AvidaGPAgent & agent) {
-            return testcase_score_cache[this->GetCacheID(agent.GetID(), i)];
+            return agent_phen_cache[agent.GetID()].testcase_scores[i];
           });
         }
         break;
@@ -1629,7 +1689,7 @@ void LineageExp::ConfigAGP() {
   }
 
   // - Configure world upate.
-  do_world_update_sig.AddAction([this]() { agp_world->Update(); this->ClearCache(); });
+  do_world_update_sig.AddAction([this]() { agp_world->Update(); });
 
   // do_pop_snapshot
   do_pop_snapshot_sig.AddAction([this](size_t update) { this->AGP_Snapshot_SingleFile(update); });
