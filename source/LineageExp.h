@@ -71,7 +71,7 @@ constexpr size_t POP_INITIALIZATION_METHOD_ID__RANDOM_POP = 1;
 constexpr size_t OTHELLO_BOARD_WIDTH = 8;
 constexpr size_t OTHELLO_BOARD_NUM_CELLS = OTHELLO_BOARD_WIDTH * OTHELLO_BOARD_WIDTH;
 
-const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips"};
+const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_substitutions", "tag_bit_flips", "inst_insertions", "inst_deletions", "func_duplications", "func_deletions"};
 
 /// Setup a data_file with world that records information about the dominant genotype.
 template <typename WORLD_TYPE>
@@ -97,6 +97,14 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
     std::function<int(void)> dom_lin_len_all_sub = [&world](){
       return emp::CountMutSteps(world.GetGenotypeAt(0), emp::vector<std::string>({"inst_substitutions", "arg_substitutions"}));
     };
+
+    std::function<int(void)> dom_lin_len_all_non_bit = [&world](){
+      return emp::CountMutSteps(world.GetGenotypeAt(0), emp::vector<std::string>({"inst_substitutions", "arg_substitutions", "inst_insertions", "inst_deletions", "func_duplications", "func_deletions"}));
+    };
+    std::function<int(void)> dom_lin_len_all_non_bit_non_arg = [&world](){
+      return emp::CountMutSteps(world.GetGenotypeAt(0), emp::vector<std::string>({"inst_substitutions", "inst_insertions", "inst_deletions", "func_duplications", "func_deletions"}));
+    };
+
     std::function<int(void)> dom_del_step = [&world](){
       return emp::CountDeleteriousSteps(world.GetGenotypeAt(0));
     };
@@ -111,6 +119,8 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
     file.AddFun(dom_lin_len, "dominant_lineage_length", "count of changes in genotype in the dominant organism's lineage.");
     file.AddFun(dom_lin_len_inst_sub, "dominant_lineage_length_by_inst_substitution", "count of changes in genotype due to instruction substitutions in the dominant organism's lineage.");
     file.AddFun(dom_lin_len_all_sub, "dominant_lineage_length_by_all_substitutions", "count of changes in genotype in the dominant organism's lineage.");
+    file.AddFun(dom_lin_len_all_non_bit, "dominant_lineage_length_by_all_non_bit_muts", "count of changes in genotype due to all non-tag (bit flip) mutations.");
+    file.AddFun(dom_lin_len_all_non_bit_non_arg, "dominant_lineage_length_by_all_non_bit_non_arg_muts", "count of changes in genotype due to all non-tag (bit flip) and non-argument mutations.");
     file.AddFun(dom_del_step, "dominant_deleterious_steps", "count of deleterious steps along dominant organism's lineage");
     file.AddFun(dom_phen_vol, "dominant_phenotypic_volatility", "count of changes in phenotype along dominant organism's lineage");
     file.AddFun(dom_unique_phen, "dominant_unique_phenotypes", "count of unique phenotypes along dominant organism's lineage");
@@ -1080,6 +1090,10 @@ size_t LineageExp::SGP__Mutate_FixedLength(SignalGPAgent & agent, emp::Random & 
 size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random & rnd) {
   SGP__program_t & program = agent.GetGenome();
   size_t mut_cnt = 0;
+  // Reset last mutation.
+  for (size_t i = 0; i < MUTATION_TYPES.size(); ++i) {
+    last_mutation[MUTATION_TYPES[i]] = 0;
+  }
   // Duplicate a function?
   size_t expected_prog_len = program.GetInstCnt();
   size_t old_content_wall = program.GetSize(); ///< First position (or invalid position) after old content.
@@ -1094,6 +1108,8 @@ size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random
       expected_prog_len += program[fID].GetSize();
       // Duplication.
       program.PushFunction(program[fID]);
+      ++last_mutation["func_duplications"];
+      ++mut_cnt;
     // Do we delete?
     } else if (del && program.GetSize() > 1) {
       // Adjust expected program length (total instructions).
@@ -1108,6 +1124,8 @@ size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random
         --old_content_wall;
         --fID;
       }
+      ++last_mutation["func_deletions"];
+      ++mut_cnt;
     }
     ++fID;
   }
@@ -1118,6 +1136,7 @@ size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random
       SGP__tag_t & aff = program[fID].GetAffinity();
       if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
         ++mut_cnt;
+        ++last_mutation["tag_bit_flips"];
         aff.Set(i, !aff.Get(i));
       }
     }
@@ -1129,18 +1148,21 @@ size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random
       for (size_t k = 0; k < inst.affinity.GetSize(); ++k) {
         if (rnd.P(SGP_PER_BIT__TAG_BFLIP_RATE)) {
           ++mut_cnt;
+          ++last_mutation["tag_bit_flips"];
           inst.affinity.Set(k, !inst.affinity.Get(k));
         }
       }
       // Mutate instruction.
       if (rnd.P(SGP_PER_INST__SUB_RATE)) {
         ++mut_cnt;
+        ++last_mutation["inst_substitutions"];
         inst.id = rnd.GetUInt(program.GetInstLib()->GetSize());
       }
       // Mutate arguments (even if they aren't relevent to instruction).
       for (size_t k = 0; k < SGP__hardware_t::MAX_INST_ARGS; ++k) {
         if (rnd.P(SGP_PER_INST__SUB_RATE)) {
           ++mut_cnt;
+          ++last_mutation["arg_substitutions"];
           inst.args[k] = rnd.GetInt(SGP_PROG_MAX_ARG_VAL);
         }
       }
@@ -1172,6 +1194,7 @@ size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random
                              SGP__tag_t());
             new_fun.inst_seq.back().affinity.Randomize(rnd);
             ++mut_cnt;
+            ++last_mutation["inst_insertions"];
             ins_locs.pop_back();
             continue;
           }
@@ -1179,6 +1202,7 @@ size_t LineageExp::SGP__Mutate_VariableLength(SignalGPAgent & agent, emp::Random
         // Do we delete this instruction?
         if (rnd.P(SGP_PER_INST__DEL_RATE) && num_dels < (program[fID].GetSize() - 1)) {
           ++mut_cnt;
+          ++last_mutation["inst_deletions"];
           ++num_dels;
           --expected_prog_len;
         } else {
