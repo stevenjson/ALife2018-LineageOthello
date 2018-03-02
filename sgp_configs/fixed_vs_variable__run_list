@@ -1,0 +1,25 @@
+set email lalejini@msu.edu
+set freq_email Crash
+set description ALIFE2018
+set mem_request 8
+set walltime 4
+set beacon_priority y
+set config_dir /mnt/scratch/lalejini/data/ALIFE2018/sgp_configs
+set dest_dir /mnt/scratch/lalejini/data/ALIFE2018/lineage_analysis_3-2
+
+601..610  REP1_S0_M0.005_FIXED_  module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.005 -SGP_VARIABLE_LENGTH 0 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+611..620  REP1_S0_M0.005_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.005 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+
+621..630  REP1_S0_M0.01_FIXED_  module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.01 -SGP_VARIABLE_LENGTH 0 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+631..640  REP1_S0_M0.01_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.01 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+
+641..650  REP1_S0_M0.025_FIXED_  module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.025 -SGP_VARIABLE_LENGTH 0 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+651..660  REP1_S0_M0.025_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.025 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+
+661..670  REP1_S0_M0.1_FIXED_  module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.1 -SGP_VARIABLE_LENGTH 0 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+671..680  REP1_S0_M0.1_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 0 -SGP_PER_INST__SUB_RATE 0.1 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+
+681..690  REP1_S1_M0.005_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.005 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+691..700  REP1_S1_M0.01_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.01 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+701..710  REP1_S1_M0.025_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.025 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
+711..720  REP1_S1_M0.1_VARIABLE_ module load GNU/6.2 ; ./lineage -RANDOM_SEED $seed -SELECTION_METHOD 1 -SGP_PER_INST__SUB_RATE 0.1 -SGP_VARIABLE_LENGTH 1 -ANCESTOR_FPATH ancestor_fncnt4_fnlen50.sgp ; qstat -f $PBS_JOBID
