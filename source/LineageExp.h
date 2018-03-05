@@ -59,6 +59,7 @@ constexpr size_t SELECTION_METHOD_ID__TOURNAMENT = 0;
 constexpr size_t SELECTION_METHOD_ID__LEXICASE = 1;
 constexpr size_t SELECTION_METHOD_ID__ECOEA = 2;
 constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
+constexpr size_t SELECTION_METHOD_ID__ROULETTE = 4;
 
 constexpr size_t RESOURCE_SELECT_MODE_ID__PHASES = 0;   ///< Each resource is a collection of testcase that share a range of game rounds.
 constexpr size_t RESOURCE_SELECT_MODE_ID__INDIV = 1;    ///< Each test case is a resource.
@@ -243,6 +244,7 @@ protected:
   size_t POP_INITIALIZATION_METHOD;
   // Selection Group parameters
   size_t SELECTION_METHOD;
+  size_t ELITE_SELECT__ELITE_CNT;
   size_t TOURNAMENT_SIZE;
   size_t RESOURCE_SELECT__MODE;
   double RESOURCE_SELECT__RES_AMOUNT;
@@ -516,6 +518,13 @@ protected:
     emp_assert(false); return facing_t::N; //< Should never get here.
   }
 
+  // Elite select mask.
+  template<typename WORLD_TYPE>
+  void EliteSelect_MASK(WORLD_TYPE & world, size_t e_count=1, size_t copy_count=1) {
+    if (copy_count == 0 || e_count == 0) { return; }
+    emp::EliteSelect(world, e_count, copy_count);
+  }
+
 public:
   LineageExp(const LineageConfig & config)   // @constructor
     : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), best_agent_id(0), testcases(), cur_testcase(0), last_mutation(),
@@ -534,6 +543,7 @@ public:
     ANCESTOR_FPATH = config.ANCESTOR_FPATH();
     POP_INITIALIZATION_METHOD = config.POP_INITIALIZATION_METHOD();
     SELECTION_METHOD = config.SELECTION_METHOD();
+    ELITE_SELECT__ELITE_CNT = config.ELITE_SELECT__ELITE_CNT();
     TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
     RESOURCE_SELECT__MODE = config.RESOURCE_SELECT__MODE();
     RESOURCE_SELECT__RES_AMOUNT = config.RESOURCE_SELECT__RES_AMOUNT();
@@ -631,6 +641,12 @@ public:
         exit(-1);
     }
 
+    // Because roulette select can't take negative scores, make sure we'll never
+    // return negative values from calc_test_score (i.e. check user-input parameters)
+    if (SCORE_MOVE__ILLEGAL_MOVE_VALUE <= 0 || SCORE_MOVE__LEGAL_MOVE_VALUE <= 0 || SCORE_MOVE__EXPERT_MOVE_VALUE <= 0) {
+      std::cout << "Move scores cannot be less than 0 (gee thanks, RouletteSelect)! Exiting..." << std::endl;
+      exit(-1);
+    }
     // Given a test case and a move, how are we scoring an agent?
     calc_test_score = [this](test_case_t & test, othello_idx_t move) {
       // Score move given test.
@@ -1286,10 +1302,10 @@ void LineageExp::ConfigSGP() {
 
   // Setup mutation function.
   if (SGP_VARIABLE_LENGTH) {
-    sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate_VariableLength(agent, rnd); }, 1);
+    sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate_VariableLength(agent, rnd); }, ELITE_SELECT__ELITE_CNT);
   } else {
     // NOTE: second argument specifies that we're not mutating the first thing int the pop (we're doing elite selection in all of our stuff).
-    sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate_FixedLength(agent, rnd); }, 1);
+    sgp_world->SetMutFun([this](SignalGPAgent & agent, emp::Random & rnd) { return this->SGP__Mutate_FixedLength(agent, rnd); }, ELITE_SELECT__ELITE_CNT);
   }
 
   sgp_world->SetFitFun([this](SignalGPAgent & agent) { return this->CalcFitness(agent); });
@@ -1387,8 +1403,8 @@ void LineageExp::ConfigSGP() {
   switch (SELECTION_METHOD) {
     case SELECTION_METHOD_ID__TOURNAMENT:
       do_selection_sig.AddAction([this]() {
-        emp::EliteSelect(*sgp_world, 1, 1);
-        emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
+        this->EliteSelect_MASK(*sgp_world, ELITE_SELECT__ELITE_CNT, 1);
+        emp::TournamentSelect(*sgp_world, TOURNAMENT_SIZE, POP_SIZE - ELITE_SELECT__ELITE_CNT);
       });
       break;
     case SELECTION_METHOD_ID__LEXICASE: {
@@ -1400,8 +1416,8 @@ void LineageExp::ConfigSGP() {
         });
       }
       do_selection_sig.AddAction([this]() {
-        emp::EliteSelect(*sgp_world, 1, 1);
-        emp::LexicaseSelect(*sgp_world, sgp_lexicase_fit_set, POP_SIZE - 1);
+        this->EliteSelect_MASK(*sgp_world, ELITE_SELECT__ELITE_CNT, 1);
+        emp::LexicaseSelect(*sgp_world, sgp_lexicase_fit_set, POP_SIZE - ELITE_SELECT__ELITE_CNT);
       });
       break;
     }
@@ -1439,9 +1455,9 @@ void LineageExp::ConfigSGP() {
       }
       // Setup the do selection signal action.
       do_selection_sig.AddAction([this]() {
-        emp::EliteSelect(*sgp_world, 1, 1);
+        this->EliteSelect_MASK(*sgp_world, ELITE_SELECT__ELITE_CNT, 1);
         emp::ResourceSelect(*sgp_world, sgp_resource_fit_set, resources,
-                            TOURNAMENT_SIZE, POP_SIZE - 1, RESOURCE_SELECT__FRAC,
+                            TOURNAMENT_SIZE, POP_SIZE - ELITE_SELECT__ELITE_CNT, RESOURCE_SELECT__FRAC,
                             RESOURCE_SELECT__MAX_BONUS, RESOURCE_SELECT__COST);
       });
       break;
@@ -1450,6 +1466,13 @@ void LineageExp::ConfigSGP() {
       std::cout << "Map-Elites selection not setup yet..." << std::endl;
       exit(-1);
       break;
+    case SELECTION_METHOD_ID__ROULETTE: {
+      do_selection_sig.AddAction([this]() {
+        this->EliteSelect_MASK(*sgp_world, ELITE_SELECT__ELITE_CNT, 1);
+        emp::RouletteSelect(*sgp_world, POP_SIZE - ELITE_SELECT__ELITE_CNT);
+      });
+      break;
+    }
     default:
       std::cout << "Unrecognized selection method! Exiting..." << std::endl;
       exit(-1);
@@ -1548,7 +1571,7 @@ void LineageExp::ConfigAGP() {
   agp_world->Reset();
   agp_world->SetWellMixed(true);
   // NOTE: second argument specifies that we're not mutating the first thing in the pop (we're doing elite selection in all of our stuff).
-  agp_world->SetMutFun([this](AvidaGPAgent &agent, emp::Random &rnd) { return this->AGP__Mutate(agent, rnd); }, 1);
+  agp_world->SetMutFun([this](AvidaGPAgent &agent, emp::Random &rnd) { return this->AGP__Mutate(agent, rnd); }, ELITE_SELECT__ELITE_CNT);
   agp_world->SetFitFun([this](Agent &agent) { return this->CalcFitness(agent); });
   agp_world->OnGenotypeKnown([this](emp::Ptr<AGP__genotype_t> genotype, size_t pos) {
     genotype->GetData().RecordMutation(last_mutation);
@@ -1621,8 +1644,8 @@ void LineageExp::ConfigAGP() {
   {
   case SELECTION_METHOD_ID__TOURNAMENT:
     do_selection_sig.AddAction([this]() {
-      emp::EliteSelect(*agp_world, 1, 1);
-      emp::TournamentSelect(*agp_world, TOURNAMENT_SIZE, POP_SIZE - 1);
+      this->EliteSelect_MASK(*agp_world, ELITE_SELECT__ELITE_CNT, 1);
+      emp::TournamentSelect(*agp_world, TOURNAMENT_SIZE, POP_SIZE - ELITE_SELECT__ELITE_CNT);
     });
     break;
   case SELECTION_METHOD_ID__LEXICASE: {
@@ -1633,8 +1656,8 @@ void LineageExp::ConfigAGP() {
       });
     }
     do_selection_sig.AddAction([this]() {
-      emp::EliteSelect(*agp_world, 1, 1);
-      emp::LexicaseSelect(*agp_world, agp_lexicase_fit_set, POP_SIZE - 1);
+      this->EliteSelect_MASK(*agp_world, ELITE_SELECT__ELITE_CNT, 1);
+      emp::LexicaseSelect(*agp_world, agp_lexicase_fit_set, POP_SIZE - ELITE_SELECT__ELITE_CNT);
     });
     break;
   }
@@ -1672,9 +1695,9 @@ void LineageExp::ConfigAGP() {
     }
     // Setup the do selection signal action.
     do_selection_sig.AddAction([this]() {
-      emp::EliteSelect(*agp_world, 1, 1);
+      this->EliteSelect_MASK(*agp_world, ELITE_SELECT__ELITE_CNT, 1);
       emp::ResourceSelect(*agp_world, agp_resource_fit_set, resources,
-                          TOURNAMENT_SIZE, POP_SIZE - 1, RESOURCE_SELECT__FRAC,
+                          TOURNAMENT_SIZE, POP_SIZE - ELITE_SELECT__ELITE_CNT, RESOURCE_SELECT__FRAC,
                           RESOURCE_SELECT__MAX_BONUS, RESOURCE_SELECT__COST);
     });
     break;
@@ -1683,6 +1706,13 @@ void LineageExp::ConfigAGP() {
     std::cout << "Map-Elites selection not setup yet..." << std::endl;
     exit(-1);
     break;
+  case SELECTION_METHOD_ID__ROULETTE: {
+    do_selection_sig.AddAction([this]() {
+      this->EliteSelect_MASK(*agp_world, ELITE_SELECT__ELITE_CNT, 1);
+      emp::RouletteSelect(*agp_world, POP_SIZE - ELITE_SELECT__ELITE_CNT);
+    });
+    break;
+  }
   default:
     std::cout << "Unrecognized selection method! Exiting..." << std::endl;
     exit(-1);
