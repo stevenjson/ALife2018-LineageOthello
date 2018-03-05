@@ -2,7 +2,7 @@
 #define OTHELLO_HW_H
 
 #include "base/vector.h"
-#include "games/Othello.h"
+#include "games/Othello8.h"
 #include "tools/random_utils.h"
 #include "tools/math.h"
 #include "tools/string_utils.h"
@@ -11,8 +11,9 @@
 class OthelloHardware {
 
 protected:
-  using player_t = emp::Othello::Player;
-  emp::vector<emp::Othello> dreams; ///< Let's lean into that whole 'othello dream' terminology...
+  using othello_t = emp::Othello8;
+  using player_t = othello_t::Player;
+  emp::vector<othello_t> dreams; ///< Let's lean into that whole 'othello dream' terminology...
   size_t active_dream;
   player_t playerID;
 
@@ -21,7 +22,7 @@ public:
   : dreams(dream_cnt), active_dream(0), playerID(pID)
   { emp_assert(dream_cnt > 0); }
 
-  emp::Othello & GetActiveDreamOthello() { return dreams[active_dream]; }
+  othello_t & GetActiveDreamOthello() { return dreams[active_dream]; }
 
   void SetActiveDream(size_t id) {
     emp_assert(id < dreams.size());
@@ -35,7 +36,7 @@ public:
     for (size_t i = 0; i < dreams.size(); ++i) dreams[i].Reset();
   }
 
-  void Reset(const emp::Othello & other) {
+  void Reset(const othello_t & other) {
     for (size_t i = 0; i < dreams.size(); ++i) {
       dreams[i].Reset();
       dreams[i].SetBoard(other.GetBoard());
@@ -46,7 +47,7 @@ public:
     dreams[active_dream].Reset();
   }
 
-  void ResetActive(const emp::Othello & other) {
+  void ResetActive(const othello_t & other) {
     dreams[active_dream].Reset();
     dreams[active_dream].SetBoard(other.GetBoard());
   }

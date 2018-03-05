@@ -17,7 +17,7 @@
 #include "Evolve/Resource.h"
 #include "Evolve/SystematicsAnalysis.h"
 #include "Evolve/World_output.h"
-#include "games/Othello.h"
+#include "games/Othello8.h"
 #include "hardware/EventDrivenGP.h"
 #include "hardware/AvidaGP.h"
 #include "hardware/AvidaCPU_InstLib.h"
@@ -130,9 +130,10 @@ emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath=
 class LineageExp {
 public:
   // @aliases
-  using player_t = emp::Othello::Player;
-  using facing_t = emp::Othello::Facing;
-  using othello_idx_t = emp::Othello::Index;
+  using othello_t = emp::Othello8;
+  using player_t = othello_t::Player;
+  using facing_t = othello_t::Facing;
+  using othello_idx_t = othello_t::Index;
   // SignalGP-specific type aliases:
   using SGP__hardware_t = emp::EventDrivenGP_AW<SGP__TAG_WIDTH>;
   using SGP__program_t = SGP__hardware_t::Program;
@@ -198,7 +199,7 @@ public:
   };
 
   struct TestcaseInput {
-    emp::Othello game;  ///< Othello game board.
+    othello_t game;  ///< Othello game board.
     player_t playerID;    ///< From what player is the testcase move made?
     size_t round;       ///< What round is this testcase?
 
@@ -308,8 +309,6 @@ protected:
   emp::vector<std::function<double(SignalGPAgent &)>> sgp_resource_fit_set; ///< Fit set for SGP resource selection.
   emp::vector<std::function<double(AvidaGPAgent &)>> agp_resource_fit_set;  ///< Fit set for AGP resource selection.
 
-  // emp::vector<double> testcase_score_cache;   ///< Place to store testcase scores.
-  // emp::vector<double> agent_score_cache;      ///< Place to store overall agent scores.
   emp::vector<Phenotype> agent_phen_cache;
 
   mut_count_t last_mutation;
@@ -347,7 +346,7 @@ protected:
   emp::Signal<void(size_t pos, double)> record_fit_sig;        ///< Trigger signal before organism gives birth.
   emp::Signal<void(size_t pos, const phenotype_t &)> record_phen_sig;  ///< Trigger signal before organism gives birth.
   // Agent evaluation signals.
-  emp::Signal<void(const emp::Othello &)> begin_turn_sig; ///< Called at beginning of agent turn during evaluation.
+  emp::Signal<void(const othello_t &)> begin_turn_sig; ///< Called at beginning of agent turn during evaluation.
   emp::Signal<void(void)> agent_advance_sig;              ///< Called during agent's turn. Should cause agent to advance by a single timestep.
 
   std::function<size_t(void)> get_eval_agent_move;              ///< Should return eval_hardware's current move selection. Hardware-specific!
@@ -367,7 +366,7 @@ protected:
   ///  - get_eval_agent_done
   ///  - get_eval_agent_move
   ///  - get_eval_agent_playerID
-  othello_idx_t EvalMove__GP(emp::Othello & game, bool promise_validity=false) {
+  othello_idx_t EvalMove__GP(othello_t & game, bool promise_validity=false) {
     // Signal begin_turn
     begin_turn_sig.Trigger(game);
     // Run agent until time is up or until agent indicates it is done evaluating.
@@ -387,7 +386,7 @@ protected:
         const size_t move_y = move.y();
         size_t new_move_x = 0;
         size_t new_move_y = 0;
-        size_t sq_move_dist = game.GetBoard().size() * game.GetBoard().size();
+        size_t sq_move_dist = game.GetNumCells() * game.GetNumCells();
         for (size_t i = 0; i < valid_moves.size(); ++i) {
           const size_t proposed_x = valid_moves[i].x();
           const size_t proposed_y = valid_moves[i].y();
@@ -403,7 +402,7 @@ protected:
   }
 
   /// Returns a random valid move.
-  othello_idx_t EvalMove__Random(emp::Othello & game, player_t playerID, bool promise_validity=false) {
+  othello_idx_t EvalMove__Random(othello_t & game, player_t playerID, bool promise_validity=false) {
     emp::vector<othello_idx_t> options = game.GetMoveOptions(playerID);
     return options[random->GetUInt(0, options.size())];
   }
@@ -414,7 +413,7 @@ protected:
   test_case_t GenerateTestcase(emp::vector<std::string> & test_case_strings) {
     // Build test case input.
     TestcaseInput input;
-    emp::Othello & game = input.game;
+    othello_t & game = input.game;
     // test_case_strings expectation: game_board_positions, round, playerID, expert_move
     emp_assert(test_case_strings.size() == (game.GetNumCells() + 3));
 
@@ -448,6 +447,7 @@ protected:
           exit(-1);
       }
     }
+    game.SetupCache();
     input.round = rnd;
     input.playerID = playerID;
 
@@ -504,7 +504,7 @@ protected:
   }
 
   facing_t IntToFacing(int dir) {
-    dir = emp::Mod(dir, emp::Othello::NUM_DIRECTIONS);
+    dir = emp::Mod(dir, othello_t::NUM_DIRECTIONS);
     switch(dir) {
       case 0: return facing_t::N;
       case 1: return facing_t::NE;
@@ -1364,8 +1364,8 @@ void LineageExp::ConfigSGP() {
     emp::AddLineageMutationFile(*sgp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     AddDominantFile(*sgp_world, DATA_DIRECTORY + "dominant.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     AddBestPhenotypeFile(*sgp_world, DATA_DIRECTORY+"best_phenotype.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
-    sgp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) sgp_muller_file.Update(); });
+    // sgp_muller_file = emp::AddMullerPlotFile(*sgp_world, DATA_DIRECTORY + "muller_data.dat");
+    // sgp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) sgp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { sgp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
     record_phen_sig.AddAction([this](size_t pos, const phenotype_t & phen) { sgp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
@@ -1486,7 +1486,7 @@ void LineageExp::ConfigSGP() {
         sgp_eval_hw->SingleProcess();
       });
       // Setup run-mode begin turn signal response.
-      begin_turn_sig.AddAction([this](const emp::Othello & game) {
+      begin_turn_sig.AddAction([this](const othello_t & game) {
         const player_t playerID = testcases[cur_testcase].GetInput().playerID;
         SGP__ResetHW();
         othello_dreamware->Reset(game);
@@ -1516,7 +1516,7 @@ void LineageExp::ConfigSGP() {
             othello_dreamware->GetActiveDreamOthello().Print();
           });
           // Setup a verbose begin_turn_sig response.
-          begin_turn_sig.AddAction([this](const emp::Othello & game) {
+          begin_turn_sig.AddAction([this](const othello_t & game) {
             const player_t playerID = testcases[cur_testcase].GetInput().playerID;
             std::cout << "===============================================" << std::endl;
             std::cout << "TEST CASE: " << cur_testcase << std::endl;
@@ -1611,8 +1611,8 @@ void LineageExp::ConfigAGP() {
     emp::AddLineageMutationFile(*agp_world, DATA_DIRECTORY + "lineage_mutations.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     AddDominantFile(*agp_world, DATA_DIRECTORY + "dominant.csv", MUTATION_TYPES).SetTimingRepeat(SYSTEMATICS_INTERVAL);
     AddBestPhenotypeFile(*agp_world, DATA_DIRECTORY+"best_phenotype.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
-    agp_muller_file = emp::AddMullerPlotFile(*agp_world, DATA_DIRECTORY + "muller_data.dat");
-    agp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) agp_muller_file.Update(); });
+    // agp_muller_file = emp::AddMullerPlotFile(*agp_world, DATA_DIRECTORY + "muller_data.dat");
+    // agp_world->OnUpdate([this](size_t ud){ if (ud % SYSTEMATICS_INTERVAL == 0) agp_muller_file.Update(); });
     record_fit_sig.AddAction([this](size_t pos, double fitness) { agp_world->GetGenotypeAt(pos)->GetData().RecordFitness(fitness); } );
     record_phen_sig.AddAction([this](size_t pos, const phenotype_t & phen) { agp_world->GetGenotypeAt(pos)->GetData().RecordPhenotype(phen); } );
     // Generate the initial population.
@@ -1733,7 +1733,7 @@ void LineageExp::ConfigAGP() {
         agp_eval_hw->SingleProcess();
       });
       // Setup run-mode begin turn signal response.
-      begin_turn_sig.AddAction([this](const emp::Othello & game) {
+      begin_turn_sig.AddAction([this](const othello_t & game) {
         const player_t playerID = testcases[cur_testcase].GetInput().playerID;
         AGP__ResetHW();
         othello_dreamware->Reset(game);
