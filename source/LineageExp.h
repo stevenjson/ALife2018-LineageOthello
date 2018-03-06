@@ -745,7 +745,6 @@ public:
 
         std::clock_t base_start_time = std::clock();
 
-
         do_begin_run_setup_sig.Trigger();
         for (update = 0; update <= GENERATIONS; ++update) {
           RunStep();

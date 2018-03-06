@@ -85,7 +85,9 @@ public:
         return lookup[o][p].GetFrontierCnt(player);
       }
     }
-    return othello.CountFrontierPos(player);
+    CacheBoard(othello);
+    return lookup[o][p].GetFrontierCnt(player);
+    // return othello.CountFrontierPos(player);
   }
 
   // GetFlipList
@@ -97,7 +99,9 @@ public:
         return lookup[o][p].GetFlipList(player, index);
       }
     }
-    return othello.GetFlipList(player, index);
+    CacheBoard(othello);
+    return lookup[o][p].GetFlipList(player, index);
+    // return othello.GetFlipList(player, index);
   } // TODO: test out lazy caching!
 
   // GetFlipCount
@@ -109,7 +113,9 @@ public:
         return lookup[o][p].GetFlipList(player, index).size();
       }
     }
-    return othello.GetFlipCount(player, index);
+    CacheBoard(othello);
+    return lookup[o][p].GetFlipList(player, index).size();
+    // return othello.GetFlipCount(player, index);
   }
 
   // GetMoveOptions
