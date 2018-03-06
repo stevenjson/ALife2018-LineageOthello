@@ -74,7 +74,7 @@ const emp::vector<std::string> MUTATION_TYPES = {"inst_substitutions", "arg_subs
 
 /// Setup a data_file with world that records information about the dominant genotype.
 template <typename WORLD_TYPE>
-emp::World_file & AddDominantFile(WORLD_TYPE & world, const std::string & fpath="dominant.csv", emp::vector<std::string> mut_types = {"substitution"}){
+emp::DataFile & AddDominantFile(WORLD_TYPE & world, const std::string & fpath="dominant.csv", emp::vector<std::string> mut_types = {"substitution"}){
     auto & file = world.SetupFile(fpath);
 
     std::function<size_t(void)> get_update = [&world](){return world.GetUpdate();};
@@ -316,8 +316,8 @@ protected:
   emp::vector<emp::vector<size_t>> testcases_by_phase;  ///< Testcase IDs organized by game phase (the length of which is defined by RESOURCE_SELECT__GAME_PHASE_LEN)
   emp::vector<emp::Resource> resources;                 ///< Resources for emp::ResourceSelect. One for each game phase.
 
-  emp::CollectionDataFile<std::unordered_set<emp::Ptr<SGP__genotype_t>, typename emp::Ptr<SGP__genotype_t>::hash_t>*> sgp_muller_file;
-  emp::CollectionDataFile<std::unordered_set<emp::Ptr<AGP__genotype_t>, typename emp::Ptr<AGP__genotype_t>::hash_t>*> agp_muller_file;
+  // emp::CollectionDataFile<std::unordered_set<emp::Ptr<SGP__genotype_t>, typename emp::Ptr<SGP__genotype_t>::hash_t>*> sgp_muller_file;
+  // emp::CollectionDataFile<std::unordered_set<emp::Ptr<AGP__genotype_t>, typename emp::Ptr<AGP__genotype_t>::hash_t>*> agp_muller_file;
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
@@ -527,9 +527,9 @@ protected:
 
 public:
   LineageExp(const LineageConfig & config)   // @constructor
-    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), best_agent_id(0), testcases(), cur_testcase(0), last_mutation(),
-      sgp_muller_file(DATA_DIRECTORY + "muller_data.dat"),
-      agp_muller_file(DATA_DIRECTORY + "muller_data.dat")
+    : update(0), eval_time(0), OTHELLO_MAX_ROUND_CNT(0), best_agent_id(0), testcases(), cur_testcase(0), last_mutation()//,
+      // sgp_muller_file(DATA_DIRECTORY + "muller_data.dat"),
+      // agp_muller_file(DATA_DIRECTORY + "muller_data.dat")
   {
     // Localize configs.
     RUN_MODE = config.RUN_MODE();
@@ -773,7 +773,7 @@ public:
   void AGP_Snapshot_SingleFile(size_t update);
 
   template <typename WORLD_TYPE>
-  emp::World_file & AddBestPhenotypeFile(WORLD_TYPE & world, const std::string & fpath="best_phenotype.csv") {
+  emp::DataFile & AddBestPhenotypeFile(WORLD_TYPE & world, const std::string & fpath="best_phenotype.csv") {
       auto & file = world.SetupFile(fpath);
 
       std::function<size_t(void)> get_update = [&world](){ return world.GetUpdate(); };
