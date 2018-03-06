@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <functional>
+#include <ctime>
 
 #include "base/Ptr.h"
 #include "base/vector.h"
@@ -30,6 +31,7 @@
 
 #include "TestcaseSet.h"
 #include "OthelloHW.h"
+#include "OthelloLookup.h"
 #include "lineage-config.h"
 
 // @constants
@@ -321,6 +323,8 @@ protected:
 
   emp::Ptr<OthelloHardware> othello_dreamware; ///< Othello game board dreamware!
 
+  OthelloLookup othello_lookup;
+
   // SignalGP-specifics.
   emp::Ptr<SGP__world_t> sgp_world;         ///< World for evolving SignalGP agents.
   emp::Ptr<SGP__inst_lib_t> sgp_inst_lib;   ///< SignalGP instruction library.
@@ -605,6 +609,14 @@ public:
       agent_phen_cache[i].aggregate_score = 0;
     }
 
+    // Testing out othello lookup
+    OthelloLookup othello_lookup;
+    std::cout << "Caching all test case boards..." << std::endl;
+    for (size_t i = 0; i < testcases.GetSize(); ++i) {
+      othello_lookup.CacheBoard(testcases[i].GetInput().game);
+    }
+    std::cout << "Done caching all test case boards!" << std::endl;
+
     // Organize testcase IDs into phases.
     // - How many phases are we working with?
     int bucket_cnt = std::ceil(((double)OTHELLO_MAX_ROUND_CNT)/((double)RESOURCE_SELECT__GAME_PHASE_LEN));
@@ -729,13 +741,24 @@ public:
   void Run() {
     switch (RUN_MODE) {
       case RUN_ID__EXP: {
+
+        std::clock_t base_start_time = std::clock();
+
+
         do_begin_run_setup_sig.Trigger();
         for (update = 0; update <= GENERATIONS; ++update) {
           RunStep();
           if (update % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(update);
         }
+
+        std::clock_t base_tot_time = std::clock() - base_start_time;
+        std::cout << "Time = " << 1000.0 * ((double) base_tot_time) / (double) CLOCKS_PER_SEC
+                  << " ms." << std::endl;
+
         break;
       }
+
+
       case RUN_ID__ANALYSIS:
         do_analysis_sig.Trigger();
         break;
@@ -1293,7 +1316,7 @@ void LineageExp::SGP_Snapshot_SingleFile(size_t update) {
   prog_ofstream.close();
 }
 
-#include "LineageExp__InstructionImpl.h"
+#include "LineageExp__InstructionImpl__NOLOOKUP.h"
 
 void LineageExp::ConfigSGP() {
   // Configure the world.
