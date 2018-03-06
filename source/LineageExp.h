@@ -440,17 +440,18 @@ protected:
           game.SetPos(i, player_t::LIGHT);
           break;
         case TESTCASE_FILE__OPEN_ID:
-          game.SetPos(i, player_t::NONE);
+          // game.SetPos(i, player_t::NONE);
+          game.ClearPos(i);
           break;
         default:
           std::cout << "Unrecognized board tile! Exiting..." << std::endl;
           exit(-1);
       }
     }
-    game.SetupCache();
+
+    // game.SetupCache();
     input.round = rnd;
     input.playerID = playerID;
-
     // Fill out testcase output.
     TestcaseOutput output;
     output.expert_move.pos = expert_move;
