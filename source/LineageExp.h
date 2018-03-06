@@ -1317,7 +1317,7 @@ void LineageExp::SGP_Snapshot_SingleFile(size_t update) {
   prog_ofstream.close();
 }
 
-#include "LineageExp__InstructionImpl__NOLOOKUP.h"
+#include "LineageExp__InstructionImpl.h"
 
 void LineageExp::ConfigSGP() {
   // Configure the world.
