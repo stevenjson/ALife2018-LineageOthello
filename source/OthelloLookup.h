@@ -19,12 +19,12 @@ public:
     emp::vector<emp::vector<idx_t>> dark_flip_list_by_pos;
     size_t dark_frontier_cnt;
     emp::vector<idx_t> dark_move_options;
-    std::vector<char> dark_is_valid_move_by_pos;
+    emp::vector<char> dark_is_valid_move_by_pos;
 
     emp::vector<emp::vector<idx_t>> light_flip_list_by_pos;
     size_t light_frontier_cnt;
     emp::vector<idx_t> light_move_options;
-    std::vector<char> light_is_valid_move_by_pos;
+    emp::vector<char> light_is_valid_move_by_pos;
 
 
     size_t GetFrontierCnt(player_t player) {
