@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
     // 2) Cache the board.
     lu.CacheBoard(game);
     // 3) Poke the cache a lot.
-    for (size_t i = 0; i < game.GetNumCells() + 10; ++i) {
+    for (size_t i = 0; i <= game.GetNumCells(); ++i) {
       dummy_var += lu.GetFlipList(game, player_t::DARK, i).size();
       dummy_var += lu.GetFlipList(game, player_t::LIGHT, i).size();
       dummy_var += lu.CountFrontierPos(game, player_t::DARK);
@@ -53,8 +53,9 @@ int main(int argc, char* argv[])
     std::cout << "  Lookup time = " << 1000.0 * ((double) base_tot_time) / (double) CLOCKS_PER_SEC
               << " ms." << std::endl;
     // How fast is caching+a bunch of lookups compared to just raw requests?
+    // -- Not even a totally fair comparison (biased in raw request's favor)!
     base_start_time = std::clock();
-    for (size_t i = 0; i < game.GetNumCells() + 10; ++i) {
+    for (size_t i = 0; i < game.GetNumCells(); ++i) {
       dummy_var += game.GetFlipList(player_t::DARK, i).size();
       dummy_var += game.GetFlipList(player_t::LIGHT, i).size();
       dummy_var += game.CountFrontierPos(player_t::DARK);
@@ -62,8 +63,30 @@ int main(int argc, char* argv[])
       dummy_var += game.GetMoveOptions(player_t::DARK).size();
       dummy_var += game.GetMoveOptions(player_t::LIGHT).size();
     }
-     base_tot_time = std::clock() - base_start_time;
+    base_tot_time = std::clock() - base_start_time;
     std::cout << "  Raw time = " << 1000.0 * ((double) base_tot_time) / (double) CLOCKS_PER_SEC
               << " ms." << std::endl;
+
+    // Let's double check that everything checks out.
+    for (size_t i = 0; i < game.GetNumCells(); ++i) {
+      if (lu.GetFlipList(game, player_t::DARK, i) != game.GetFlipList(player_t::DARK, i)) {
+        std::cout << "Oh no! Something's not quite right." << std::endl;
+      }
+      if (lu.GetFlipList(game, player_t::LIGHT, i) != game.GetFlipList(player_t::LIGHT, i)) {
+        std::cout << "Oh no! Something's not quite right." << std::endl;
+      }
+      if (lu.CountFrontierPos(game, player_t::DARK) != game.CountFrontierPos(player_t::DARK)) {
+        std::cout << "Oh no! Something's not quite right." << std::endl;
+      }
+      if (lu.CountFrontierPos(game, player_t::LIGHT) != game.CountFrontierPos(player_t::LIGHT)) {
+        std::cout << "Oh no! Something's not quite right." << std::endl;
+      }
+      if (lu.GetMoveOptions(game, player_t::DARK) != game.GetMoveOptions(player_t::DARK)) {
+        std::cout << "Oh no! Something's not quite right." << std::endl;
+      }
+      if (lu.GetMoveOptions(game, player_t::LIGHT).size() != game.GetMoveOptions(player_t::LIGHT).size()) {
+        std::cout << "Oh no! Something's not quite right." << std::endl;
+      }
+    }
   }
 }
