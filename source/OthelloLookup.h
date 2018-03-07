@@ -19,18 +19,20 @@ public:
     emp::vector<emp::vector<idx_t>> dark_flip_list_by_pos;
     size_t dark_frontier_cnt;
     emp::vector<idx_t> dark_move_options;
-    emp::vector<bool> dark_is_valid_move_by_pos;
+    std::vector<char> dark_is_valid_move_by_pos;
 
     emp::vector<emp::vector<idx_t>> light_flip_list_by_pos;
     size_t light_frontier_cnt;
     emp::vector<idx_t> light_move_options;
-    emp::vector<bool> light_is_valid_move_by_pos;
+    std::vector<char> light_is_valid_move_by_pos;
+
 
     size_t GetFrontierCnt(player_t player) {
       return (player == player_t::DARK) ? dark_frontier_cnt : light_frontier_cnt;
     }
 
     const emp::vector<idx_t> & GetFlipList(player_t player, idx_t index) {
+      emp_assert(index < dark_flip_list_by_pos.size() && index < light_flip_list_by_pos.size());
       return (player == player_t::DARK) ? dark_flip_list_by_pos[index] : light_flip_list_by_pos[index];
     }
 
@@ -39,7 +41,11 @@ public:
     }
 
     bool IsValidMove(player_t player, idx_t index) {
-      return (player == player_t::DARK) ? dark_is_valid_move_by_pos[index] : light_is_valid_move_by_pos[index];
+      // emp_assert(index < dark_is_valid_move_by_pos.size() && index < light_is_valid_move_by_pos.size());
+      if (index >= dark_is_valid_move_by_pos.size() && index >= light_is_valid_move_by_pos.size()) {
+        std::cout << "Oh no! " << dark_is_valid_move_by_pos.size() << "; " << light_is_valid_move_by_pos.size() << "; " << (size_t)index << std::endl;
+      }
+      return (player == player_t::DARK) ? (bool)dark_is_valid_move_by_pos[index] : (bool)light_is_valid_move_by_pos[index];
     }
 
   };
@@ -47,18 +53,19 @@ public:
 protected:
   // o, then p
   std::unordered_map<uint64_t, std::unordered_map<uint64_t, OthelloInfo>> lookup;
+  emp::vector<idx_t> empty_list;
 
 public:
-  OthelloLookup() { ; }
+  OthelloLookup() : empty_list(0) { ; }
 
   void CacheBoard(othello_t & othello) {
     const uint64_t o = othello.GetBoard().occupied;
     const uint64_t p = othello.GetBoard().player;
     if (!emp::Has(lookup, o)) {
-      lookup.emplace();
+      lookup[o] = std::unordered_map<uint64_t, OthelloInfo>();
     }
     if (!emp::Has(lookup[o], p)) {
-      lookup[o].emplace();
+      lookup[o][p] = OthelloInfo();
     }
     OthelloInfo & info = lookup[o][p];
     for (size_t i = 0; i < othello.GetNumCells(); ++i) {
@@ -75,7 +82,6 @@ public:
     info.light_move_options = othello.GetMoveOptions(player_t::LIGHT);
   }
 
-  // TODO: lookup accessors
   // CountFrontierPos
   size_t CountFrontierPos(othello_t & othello, player_t player) {
     const uint64_t o = othello.GetBoard().occupied;
@@ -87,11 +93,11 @@ public:
     }
     CacheBoard(othello);
     return lookup[o][p].GetFrontierCnt(player);
-    // return othello.CountFrontierPos(player);
   }
 
   // GetFlipList
   const emp::vector<idx_t> & GetFlipList(othello_t & othello, player_t player, idx_t index) {
+    if (!index.IsValid()) return empty_list;
     const uint64_t o = othello.GetBoard().occupied;
     const uint64_t p = othello.GetBoard().player;
     if (emp::Has(lookup, o)) {
@@ -101,11 +107,11 @@ public:
     }
     CacheBoard(othello);
     return lookup[o][p].GetFlipList(player, index);
-    // return othello.GetFlipList(player, index);
-  } // TODO: test out lazy caching!
+  }
 
   // GetFlipCount
   size_t GetFlipCount(othello_t & othello, player_t player, idx_t index) {
+    if (!index.IsValid()) return 0;
     const uint64_t o = othello.GetBoard().occupied;
     const uint64_t p = othello.GetBoard().player;
     if (emp::Has(lookup, o)) {
@@ -115,7 +121,6 @@ public:
     }
     CacheBoard(othello);
     return lookup[o][p].GetFlipList(player, index).size();
-    // return othello.GetFlipCount(player, index);
   }
 
   // GetMoveOptions
@@ -133,6 +138,7 @@ public:
 
   // IsValid
   bool IsValidMove(othello_t & othello, player_t player, idx_t index) {
+    if (!index.IsValid()) return false;
     const uint64_t o = othello.GetBoard().occupied;
     const uint64_t p = othello.GetBoard().player;
     if (emp::Has(lookup, o)) {

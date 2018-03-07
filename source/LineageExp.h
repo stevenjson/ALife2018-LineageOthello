@@ -743,7 +743,7 @@ public:
     switch (RUN_MODE) {
       case RUN_ID__EXP: {
 
-        // std::clock_t base_start_time = std::clock();
+        std::clock_t base_start_time = std::clock();
 
         do_begin_run_setup_sig.Trigger();
         for (update = 0; update <= GENERATIONS; ++update) {
@@ -751,9 +751,9 @@ public:
           if (update % POP_SNAPSHOT_INTERVAL == 0) do_pop_snapshot_sig.Trigger(update);
         }
 
-        // std::clock_t base_tot_time = std::clock() - base_start_time;
-        // std::cout << "Time = " << 1000.0 * ((double) base_tot_time) / (double) CLOCKS_PER_SEC
-        //           << " ms." << std::endl;
+        std::clock_t base_tot_time = std::clock() - base_start_time;
+        std::cout << "Time = " << 1000.0 * ((double) base_tot_time) / (double) CLOCKS_PER_SEC
+                  << " ms." << std::endl;
 
         break;
       }
