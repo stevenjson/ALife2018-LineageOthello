@@ -51,6 +51,7 @@ constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
 
 constexpr size_t ANALYSIS_TYPE_ID__DEBUGGING = 0;
+constexpr size_t ANALYSIS_TYPE_ID__VERSUS_MODE = 1;
 
 constexpr int AGENT_VIEW__ILLEGAL_ID = -1;
 constexpr int AGENT_VIEW__OPEN_ID = 0;
@@ -785,6 +786,9 @@ public:
   void ConfigSGP_InstLib();
   void ConfigAGP();
   void ConfigAGP_InstLib();
+
+  // Analysis functions
+  void AGP__Analysis_VersusMode();
 
   // Mutation functions
   size_t SGP__Mutate_FixedLength(SignalGPAgent & agent, emp::Random & rnd);
@@ -1772,8 +1776,35 @@ void LineageExp::ConfigAGP() {
     }
 
     case RUN_ID__ANALYSIS: {
-      std::cout << "Unimplemented analysis type. Exiting..." << std::endl;
-      exit(-1);
+      std::cout << "AGP analysis mode!" << std::endl;
+      switch (ANALYSIS_TYPE) {
+        case ANALYSIS_TYPE_ID__VERSUS_MODE: {
+          do_analysis_sig.AddAction([this]() { this->AGP__Analysis_VersusMode(); });
+
+          // Setup run-mode agent advance signal response.
+          agent_advance_sig.AddAction([this]() {
+            agp_eval_hw->SingleProcess();
+          });
+
+          // Setup run-mode begin turn signal response.
+          begin_turn_sig.AddAction([this](const othello_t & game) {
+            AGP__ResetHW();
+            othello_dreamware->Reset(game);
+            othello_dreamware->SetActiveDream(0);
+          });
+
+          // Setup non-verbose get move.
+          get_eval_agent_move = [this]() {
+            return (size_t)agp_eval_hw->GetTrait(TRAIT_ID__MOVE);
+          };
+
+          break;
+        }
+        default:
+          std::cout << "Unrecognized analysis mode!" << std::endl;
+          exit(-1);
+      }
+      break;
     }
 
     default:
@@ -1788,6 +1819,75 @@ void LineageExp::ConfigAGP() {
   get_eval_agent_playerID = [this]() {
     return othello_dreamware->GetPlayerID();
   };
+}
+
+void LineageExp::AGP__Analysis_VersusMode() {
+  // For now: pit agp program (ANALYSIS_PROGRAM_FPATH) against random opponent.
+  // Configure analysis program.
+  AGP__hardware_t analysis_prog(agp_inst_lib);
+  std::ifstream analysis_fstream(ANALYZE_PROGRAM_FPATH);
+  if (!analysis_fstream.is_open())
+  {
+    std::cout << "Failed to open analysis program file(" << ANALYZE_PROGRAM_FPATH << "). Exiting..." << std::endl;
+    exit(-1);
+  }
+  analysis_prog.Load(analysis_fstream);
+  std::cout << " --- Analysis program: ---" << std::endl;
+  analysis_prog.PrintGenome();
+  std::cout << " -------------------------" << std::endl;
+
+  agp_eval_hw->SetGenome(analysis_prog.GetGenome());
+  // Okay.
+  othello_t game;
+  othello_dreamware->SetPlayerID(player_t::LIGHT);
+
+  player_t cur_player = player_t::DARK;
+  std::string hw_player_type = "DARK";
+
+  std::string rando_player_type = "LIGHT";
+
+  size_t illegal_move_total = 0;
+  size_t r = 0;
+  while (!game.IsOver()) {
+    std::cout <<"-------- ROUND: " << r << " --------"<< std::endl;
+
+    cur_player = game.GetCurPlayer();
+
+    game.Print();
+
+    std::cout << "Current player: ";
+
+    othello_idx_t move;
+    if (cur_player == othello_dreamware->GetPlayerID()) {
+      std::cout << hw_player_type << std::endl;
+
+      move = EvalMove__GP(game, false);
+
+      // Check move for validity.
+      if (!game.IsValidMove(cur_player, move)) {
+        ++illegal_move_total;
+        std::cout << "Selected move: " << move.x() << ", " << move.y() << std::endl;
+        std::cout << "BZZZZZ ILLEGAL MOVE, selecting a random alternative." << std::endl;
+        move = EvalMove__Random(game, cur_player, true); // Make a random move instead.
+      }
+
+    } else {
+      std::cout << rando_player_type << std::endl;
+      move = EvalMove__Random(game, cur_player, true);
+    }
+
+    std::cout << "Selected move: " << move.x() << ", " << move.y() << std::endl;
+
+    // Make move.
+    game.DoMove(cur_player, move);
+    r++;
+  }
+
+  std::cout << "Dark score: " << game.GetScore(player_t::DARK) << std::endl;
+  std::cout << "Light score: " << game.GetScore(player_t::LIGHT) << std::endl;
+
+  std::cout << "Program illegal move count: " << illegal_move_total << std::endl;
+
 }
 
 #endif
