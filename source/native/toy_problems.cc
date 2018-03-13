@@ -8,7 +8,7 @@
 #include "config/ArgManager.h"
 
 #include "../toy-config.h"
-// #include "../LineageExp.h"
+#include "../ToyProblemExp.h"
 
 int main(int argc, char* argv[])
 {
@@ -30,6 +30,6 @@ int main(int argc, char* argv[])
   std::cout << "==============================\n"
             << std::endl;
 
-  // LineageExp e(config);
-  // e.Run();
+  ToyProblemExp e(config);
+  e.Run();
 }
