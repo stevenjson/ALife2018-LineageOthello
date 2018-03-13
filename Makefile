@@ -1,9 +1,12 @@
 # Project-specific settings
-PROJECT := lineage
+OTHELLO := lineage
+TOY := toy_problems
+
 EMP_DIR := ../Empirical/source
+CEC2013_DIR := ../CEC2013/c++
 
 # Flags to use regardless of compiler
-CFLAGS_all := -Wall -Wno-unused-function -std=c++14 -I$(EMP_DIR)/
+CFLAGS_all := -Wall -Wno-unused-function -std=c++14 -I$(EMP_DIR)/ -I$(CEC2013_DIR)/
 
 # Native compiler information
 CXX_nat := g++
@@ -19,29 +22,38 @@ OFLAGS_web_debug := -g4 -Oz -pedantic -Wno-dollar-in-identifier-extension
 CFLAGS_web := $(CFLAGS_all) $(OFLAGS_web) $(OFLAGS_web_all)
 CFLAGS_web_debug := $(CFLAGS_all) $(OFLAGS_web_debug) $(OFLAGS_web_all)
 
+native: $(OTHELLO) $(TOY)
+othello: $(OTHELLO)
+toy: $(TOY)
+default: native
 
-default: $(PROJECT)
-native: $(PROJECT)
-web: $(PROJECT).js
-all: $(PROJECT) $(PROJECT).js
 
 debug:	CFLAGS_nat := $(CFLAGS_nat_debug)
-debug:	$(PROJECT)
+debug:	$(OTHELLO) $(TOY)
+debug-othello:	CFLAGS_nat := $(CFLAGS_nat_debug)
+debug-othello: $(OTHELLO)
+debug-toy:	CFLAGS_nat := $(CFLAGS_nat_debug)
+debug-toy: $(TOY)
 
-debug-web:	CFLAGS_web := $(CFLAGS_web_debug)
-debug-web:	$(PROJECT).js
+cec2013.o: $(CEC2013_DIR)/cec2013.h $(CEC2013_DIR)/cec2013.cpp $(CEC2013_DIR)/cfunction.h $(CEC2013_DIR)/cfunction.cpp
+	$(CXX_nat) $(CFLAGS_nat) -c $(CEC2013_DIR)/cec2013.cpp
+cfunction.o: $(CEC2013_DIR)/cfunction.h $(CEC2013_DIR)/cfunction.cpp
+	$(CXX_nat) $(CFLAGS_nat) -c $(CEC2013_DIR)/cfunction.cpp
+rand2.o: $(CEC2013_DIR)/rand2.h $(CEC2013_DIR)/rand2.c
+	$(CXX_nat) $(CFLAGS_nat) -c $(CEC2013_DIR)/rand2.c
 
-web-debug:	debug-web
-
-$(PROJECT):	source/native/$(PROJECT).cc
-	$(CXX_nat) $(CFLAGS_nat) source/native/$(PROJECT).cc -o $(PROJECT)
+$(TOY):	cec2013.o cfunction.o rand2.o source/native/$(TOY).cc
+	$(CXX_nat) $(CFLAGS_nat) source/native/$(TOY).cc cec2013.o cfunction.o rand2.o -o $(TOY)
 	@echo To build the web version use: make web
 
-$(PROJECT).js: source/web/$(PROJECT)-web.cc
-	$(CXX_web) $(CFLAGS_web) source/web/$(PROJECT)-web.cc -o web/$(PROJECT).js
+$(OTHELLO):	source/native/$(OTHELLO).cc
+	$(CXX_nat) $(CFLAGS_nat) source/native/$(OTHELLO).cc -o $(OTHELLO)
+	@echo To build the web version use: make web
+
 
 clean:
-	rm -f $(PROJECT) web/$(PROJECT).js web/*.js.map web/*.js.map *~ source/*.o
+	rm -f $(TOY) web/$(Toy).js web/*.js.map web/*.js.map *~ source/*.o
+	rm -f $(OTHELLO) web/$(OTHELLO).js web/*.js.map web/*.js.map *~ source/*.o
 
 # Debugging information
 print-%: ; @echo '$(subst ','\'',$*=$($*))'
