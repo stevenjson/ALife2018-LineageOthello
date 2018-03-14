@@ -30,8 +30,7 @@
 #include "cec2013.h"
 
 // TODO:
-// [ ] full lineage snapshots (~500 updates)
-//    - Update PrintLineage to print count
+// [ ] New roulette selection, pass fitness function
 
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
@@ -58,6 +57,36 @@ const emp::vector<std::string> MUTATION_TYPES = {"normal", "normal_x", "normal_y
 const emp::vector<size_t> PROBLEM_MAP = {4,5,6,7,10,11,12,13};
 const emp::vector<std::string> PROBLEM_DESC = {"F4 (2D)","F5 (2D)","F6 (2D)","F7 (2D)","F8 (2D)","F9 (2D)","F10 (2D)","F11 (2D)"};
 
+
+namespace emp {
+  /// ==ROULETTE== Selection (aka Fitness-Proportional Selection) chooses organisms to
+  /// reproduce based on their current fitness.
+  /// @param world The emp::World object with the organisms to be selected.
+  /// @param count How many organims should be selected for replication? (with replacement)
+  template<typename ORG, typename DATA_TYPE>
+  void NastyRouletteSelect(World<ORG, DATA_TYPE> & world, size_t count, typename World<ORG, DATA_TYPE>::fun_calc_fitness_t & fit_fun) {
+    emp_assert(count > 0);
+
+    Random & random = world.GetRandom();
+
+    // Load fitnesses from current population.
+    IndexMap fitness_index(world.GetSize());
+    for (size_t id = 0; id < world.GetSize(); id++) {
+      fitness_index.Adjust(id, fit_fun(world.GetOrg(id)));
+      // fitness_index.Adjust(id, world.CalcFitnessID(id));
+    }
+
+    for (size_t n = 0; n < count; n++) {
+      const double fit_pos = random.GetDouble(fitness_index.GetWeight());
+      const size_t parent_id = fitness_index.Index(fit_pos);
+      const size_t offspring_id = world.DoBirth( world.GetGenomeAt(parent_id), parent_id ).GetIndex();
+      if (world.IsSynchronous() == false) {
+        fitness_index.Adjust(offspring_id, fit_fun(world.GetOrg(offspring_id)));
+        // fitness_index.Adjust(offspring_id, world.CalcFitnessID(offspring_id));
+      }
+    }
+  }
+}
 
 class ToyProblemExp {
 public:
@@ -116,6 +145,7 @@ protected:
   size_t SELECTION_METHOD;
   size_t ELITE_SELECT__ELITE_CNT;
   size_t TOURNAMENT_SIZE;
+  double LEXICASE_EPSILON;
   double RESOURCE_SELECT__RES_AMOUNT;
   double RESOURCE_SELECT__RES_INFLOW;
   double RESOURCE_SELECT__OUTFLOW;
@@ -170,6 +200,9 @@ protected:
   std::function<void(Agent &)> evaluate_agent; ///< Evaluate agent on everything required for selection. Cache results.
   std::function<double(Agent &)> fit_fun;       ///< Fitness function given to world.
 
+  std::function<double(Agent &)> special_roulette_fit_fun;       ///< Fitness function given to world.
+
+
   // Elite select mask.
   template<typename WORLD_TYPE>
   void EliteSelect_MASK(WORLD_TYPE & world, size_t e_count=1, size_t copy_count=1) {
@@ -201,6 +234,7 @@ public:
 
     SELECTION_METHOD = config.SELECTION_METHOD();
     ELITE_SELECT__ELITE_CNT = config.ELITE_SELECT__ELITE_CNT();
+    LEXICASE_EPSILON = config.LEXICASE_EPSILON();
     TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
     RESOURCE_SELECT__RES_AMOUNT = config.RESOURCE_SELECT__RES_AMOUNT();
     RESOURCE_SELECT__RES_INFLOW = config.RESOURCE_SELECT__RES_INFLOW();
@@ -392,7 +426,6 @@ public:
     // do_pop_snapshot_sig
     do_pop_snapshot_sig.AddAction([this](size_t update) {
       this->Snapshot(update);
-      // TODO: Tree snapshot
     });
 
     // record_fit_sig
@@ -526,6 +559,12 @@ size_t ToyProblemExp::Mutate(Agent & agent, emp::Random & rnd) {
 void ToyProblemExp::Snapshot(size_t u) {
   std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
   mkdir(snapshot_dir.c_str(), ACCESSPERMS);
+
+  // Print phylogeny.
+  std::ofstream phylo_stream(snapshot_dir + "/phylogeny_" + emp::to_string((int)update) + ".csv");
+  world->GetSystematics().PrintPhylogeny(phylo_stream);
+  phylo_stream.close();
+
   // For each program in the population, dump the full program description in a single file.
   std::ofstream pop_ofstream(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".pop");
   for (size_t i = 0; i < world->GetSize(); ++i) {
@@ -623,12 +662,12 @@ void ToyProblemExp::ConfigLexicaseSelection() {
     const size_t id = agent.GetID();
     Phenotype & phen = agent_phen_cache[id];
     phen.score = eval_function->evaluate(agent.genome);
-    phen.transformed_score = (phen.score+score_floor)/score_ceil;
+    phen.transformed_score = (phen.score-score_floor)/(score_ceil-score_floor);
     // Evaluate distances.
     for (size_t i = 0; i < key_points.size(); ++i) {
       phen.distances[i] = CalcDist(key_points[i], agent.genome); // Don't want to end up with divide-by-zero error.
       // phen.testcase_scores[i] = (phen.score < 0) ? (1+phen.distances[i]/max_dist)*phen.score : (1 - phen.distances[i]/max_dist)*phen.score;
-      phen.testcase_scores[i] = (1 - phen.distances[i]/max_dist) * phen.transformed_score;
+      phen.testcase_scores[i] = (1 - (phen.distances[i]/max_dist)) * phen.transformed_score;
     }
     record_phen_sig.Trigger(id, {phen.score});
     record_fit_sig.Trigger(id, phen.score);
@@ -646,10 +685,15 @@ void ToyProblemExp::ConfigLexicaseSelection() {
       return phen.testcase_scores[i];
     });
   }
+  fit_set.push_back([this](Agent & agent) {
+    const size_t id = agent.GetID();
+    const Phenotype & phen = agent_phen_cache[id];
+    return phen.score;
+  });
   // 3) Setup do_selection_sig
   do_selection_sig.AddAction([this]() {
     this->EliteSelect_MASK(*world, ELITE_SELECT__ELITE_CNT, 1);
-    emp::LexicaseSelect(*world, fit_set, POP_SIZE - ELITE_SELECT__ELITE_CNT);
+    emp::LexicaseSelect(*world, fit_set, POP_SIZE - ELITE_SELECT__ELITE_CNT, 0, LEXICASE_EPSILON);
   });
 }
 
@@ -659,12 +703,17 @@ void ToyProblemExp::ConfigEcoEASelection() {
     const size_t id = agent.GetID();
     Phenotype & phen = agent_phen_cache[id];
     phen.score = eval_function->evaluate(agent.genome);
-    phen.transformed_score = (phen.score+score_floor)/score_ceil;
+    phen.transformed_score = (phen.score-score_floor)/(score_ceil-score_floor);
     // Evaluate distances.
+    // std::cout << "Eval agent" << std::endl;
+    // std::cout << "  score floor: " << score_floor << std::endl;
+    // std::cout << "  score ceil: " << score_ceil << std::endl;
+    // std::cout << "  transformed score: " << phen.transformed_score << std::endl;
+    // std::cout << "  score: " << phen.score << std::endl;
     for (size_t i = 0; i < key_points.size(); ++i) {
       phen.distances[i] = CalcDist(key_points[i], agent.genome); // Don't want to end up with divide-by-zero error.
       // phen.testcase_scores[i] = (phen.score < 0) ? (1+phen.distances[i]/max_dist)*phen.score : (1 - phen.distances[i]/max_dist)*phen.score;
-      phen.testcase_scores[i] = (1 - phen.distances[i]/max_dist) * phen.transformed_score;
+      phen.testcase_scores[i] = (1 - (phen.distances[i]/max_dist)) * phen.transformed_score;
     }
     record_phen_sig.Trigger(id, {phen.score});
     record_fit_sig.Trigger(id, phen.score);
@@ -683,12 +732,18 @@ void ToyProblemExp::ConfigEcoEASelection() {
     });
     resources.emplace_back(RESOURCE_SELECT__RES_AMOUNT, RESOURCE_SELECT__RES_INFLOW, RESOURCE_SELECT__OUTFLOW);
   }
+  fit_set.push_back([this](Agent & agent) {
+    const size_t id = agent.GetID();
+    const Phenotype & phen = agent_phen_cache[id];
+    return phen.transformed_score;
+  });
+  resources.emplace_back(RESOURCE_SELECT__RES_AMOUNT, RESOURCE_SELECT__RES_INFLOW, RESOURCE_SELECT__OUTFLOW);
   // 3) Setup do_selection_sig
   do_selection_sig.AddAction([this]() {
     this->EliteSelect_MASK(*world, ELITE_SELECT__ELITE_CNT, 1);
     emp::ResourceSelect(*world, fit_set, resources,
                         TOURNAMENT_SIZE, POP_SIZE - ELITE_SELECT__ELITE_CNT, RESOURCE_SELECT__FRAC,
-                        RESOURCE_SELECT__MAX_BONUS, RESOURCE_SELECT__COST);
+                        RESOURCE_SELECT__MAX_BONUS, RESOURCE_SELECT__COST, false);
   });
 }
 
@@ -717,12 +772,16 @@ void ToyProblemExp::ConfigRouletteSelection() {
   // 2) Fill out fit fun.
   fit_fun = [this](Agent & agent) {
     const size_t id = agent.GetID();
+    return agent_phen_cache[id].score;
+  };
+  special_roulette_fit_fun = [this](Agent & agent) {
+    const size_t id = agent.GetID();
     return agent_phen_cache[id].transformed_score;
   };
-  // 3) Setup do_selection_sig
+  // 3) Setup do_selection_sig -- TODO, fix rs
   do_selection_sig.AddAction([this]() {
     this->EliteSelect_MASK(*world, ELITE_SELECT__ELITE_CNT, 1);
-    emp::RouletteSelect(*world, POP_SIZE - ELITE_SELECT__ELITE_CNT);
+    emp::NastyRouletteSelect(*world, POP_SIZE - ELITE_SELECT__ELITE_CNT, special_roulette_fit_fun);
   });
 }
 
