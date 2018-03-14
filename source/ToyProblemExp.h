@@ -29,9 +29,6 @@
 
 #include "cec2013.h"
 
-// TODO:
-// [ ] New roulette selection, pass fitness function
-
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
 
@@ -178,6 +175,7 @@ protected:
 
   double score_ceil;
   double score_floor;
+  double adjusted_lexicase_epsilon;
 
   emp::vector<Phenotype> agent_phen_cache;
   mut_count_t last_mutation;
@@ -310,6 +308,8 @@ public:
         score_floor = (key_point_score < score_floor) ? key_point_score : score_floor;
       }
     }
+    adjusted_lexicase_epsilon = (score_ceil - score_floor)*LEXICASE_EPSILON;
+    std::cout << "Epsilon: " << adjusted_lexicase_epsilon << std::endl;
 
     // Configure phenotype cache for key_point distances.
     for (size_t i = 0; i < agent_phen_cache.size(); ++i) {
@@ -693,7 +693,7 @@ void ToyProblemExp::ConfigLexicaseSelection() {
   // 3) Setup do_selection_sig
   do_selection_sig.AddAction([this]() {
     this->EliteSelect_MASK(*world, ELITE_SELECT__ELITE_CNT, 1);
-    emp::LexicaseSelect(*world, fit_set, POP_SIZE - ELITE_SELECT__ELITE_CNT, 0, LEXICASE_EPSILON);
+    emp::LexicaseSelect(*world, fit_set, POP_SIZE - ELITE_SELECT__ELITE_CNT, 0, adjusted_lexicase_epsilon);
   });
 }
 
