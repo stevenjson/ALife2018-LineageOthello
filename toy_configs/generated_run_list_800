@@ -1,6 +1,7 @@
 set email lalejini@msu.edu
 set freq_email Crash
 set description ALIFE2018_TOYS
+set class_pref 200
 set mem_request 4
 set walltime 4
 set beacon_priority y
