@@ -39,6 +39,7 @@ constexpr size_t SELECTION_METHOD_ID__LEXICASE = 1;
 constexpr size_t SELECTION_METHOD_ID__ECOEA = 2;
 constexpr size_t SELECTION_METHOD_ID__MAPELITES = 3;
 constexpr size_t SELECTION_METHOD_ID__ROULETTE = 4;
+constexpr size_t SELECTION_METHOD_ID__DRIFT = 5;
 
 const emp::vector<std::string> MUTATION_TYPES = {"normal", "normal_x", "normal_y"};
 
@@ -248,6 +249,8 @@ public:
     POP_SNAPSHOT_INTERVAL = config.POP_SNAPSHOT_INTERVAL();
     DATA_DIRECTORY = config.DATA_DIRECTORY();
 
+    std::cout << "Mutation thing: " << MUTATION_STD << std::endl;
+
     // for (size_t i = 0; i < PROBLEM_MAP.size(); ++i) {
     //   std::cout << "Problem: " << PROBLEM_MAP[i] << std::endl;
     //   eval_function = emp::NewPtr<CEC2013>(PROBLEM_MAP[i]);
@@ -379,6 +382,9 @@ public:
         break;
       case SELECTION_METHOD_ID__ROULETTE:
         ConfigRouletteSelection();
+        break;
+      case SELECTION_METHOD_ID__DRIFT:
+        ConfigDriftSelection();
         break;
       default:
         std::cout << "Unrecognized selection method! Exiting..." << std::endl;
@@ -530,6 +536,7 @@ public:
   void ConfigLexicaseSelection();
   void ConfigEcoEASelection();
   void ConfigRouletteSelection();
+  void ConfigDriftSelection();
 
 };
 
@@ -783,6 +790,27 @@ void ToyProblemExp::ConfigRouletteSelection() {
     this->EliteSelect_MASK(*world, ELITE_SELECT__ELITE_CNT, 1);
     emp::NastyRouletteSelect(*world, POP_SIZE - ELITE_SELECT__ELITE_CNT, special_roulette_fit_fun);
   });
+}
+
+void ToyProblemExp::ConfigDriftSelection() {
+  // 1) Fill out evaluate function.
+  evaluate_agent = [this](Agent & agent) {
+    const size_t id = agent.GetID();
+    Phenotype & phen = agent_phen_cache[id];
+    phen.score = eval_function->evaluate(agent.genome);
+    record_phen_sig.Trigger(id, {phen.score});
+    record_fit_sig.Trigger(id, phen.score);
+  };
+
+  // 2) Fill out fit fun.
+  fit_fun = [this](Agent &agent) {
+    const size_t id = agent.GetID();
+    return agent_phen_cache[id].score;
+  };
+
+  // 3) Setup do_selection_sig
+  do_selection_sig.AddAction([this]() { emp::TournamentSelect(*world, 1, POP_SIZE); });
+
 }
 
 #endif
