@@ -34,14 +34,28 @@ def main():
     parser = argparse.ArgumentParser(description="Pot hole filler.")
     parser.add_argument("-d", "--data_directory", type=str, action="append", help="Target experiment directory.")
     parser.add_argument("-l", "--not_done_log", type=str, action="append", help="Location of log of unfinished jobs.")
+    parser.add_argument("-c", "--condition", type=str, action="append", help="At least one given condition string must be job name to include in resubs.")
 
     args = parser.parse_args()
 
     data_directories = args.data_directory
     not_done_logs = args.not_done_log
+    filter_jobs = bool(args.condition)
+    include_conditions = args.condition
+    
+    def JobFilter(job_name):
+        if (not filter_jobs): return True
+        for condition in include_conditions:
+            if (condition in job_name):
+                return True
+        return False
 
     print("Data directories: {}".format(data_directories))
     print("Not done logs: {}".format(not_done_logs))
+
+    if (filter_jobs):
+        print("Filtering jobs on conditions: {}".format(include_conditions))
+
     if (not data_directories):
         print("Must provide at least one data directory!")
         exit()
@@ -53,7 +67,7 @@ def main():
     # Aggregate unfinished jobs.
     for log in not_done_logs:
         with open(log, "r") as fp:
-            unfinished_jobs += [line.split("/")[0] for line in fp.read().split("\n")]
+            unfinished_jobs += [line.split("/")[0] for line in fp.read().split("\n") if JobFilter(line)]
 
     print("TOTAL UNFINISHED JOBS (FROM LOGS): {}".format(len(unfinished_jobs)))
 
