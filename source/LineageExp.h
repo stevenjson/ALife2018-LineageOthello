@@ -226,7 +226,7 @@ public:
   // More aliases
   using phenotype_t = emp::vector<double>;
   using data_t = emp::mut_landscape_info<phenotype_t>;
-  using mut_count_t = std::unordered_map<std::string, int>;
+  using mut_count_t = std::unordered_map<std::string, double>;
   using SGP__world_t = emp::World<SignalGPAgent, data_t>;
   using AGP__world_t = emp::World<AvidaGPAgent, data_t>;
   using SGP__genotype_t = SGP__world_t::genotype_t;
