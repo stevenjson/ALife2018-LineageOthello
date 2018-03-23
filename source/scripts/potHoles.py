@@ -67,7 +67,7 @@ def main():
     # Aggregate unfinished jobs.
     for log in not_done_logs:
         with open(log, "r") as fp:
-            unfinished_jobs += [line.split("/")[0] for line in fp.read().split("\n") if JobFilter(line)]
+            unfinished_jobs += [line.split("/")[-2] for line in fp.read().split("\n") if JobFilter(line)]
 
     print("TOTAL UNFINISHED JOBS (FROM LOGS): {}".format(len(unfinished_jobs)))
 
