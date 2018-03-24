@@ -91,7 +91,7 @@ def main():
         for run in all_runs:
             run_name = run.split(" ")[0]
             run_dir = "{}_{}".format(run_name, run.split(" ")[3])
-            if not JobFilter(run): continue
+            if not JobFilter(run_dir): continue
             found = (True in [os.path.isdir(os.path.join(data_dir, run_dir)) for data_dir in data_directories])
             print("{}: {}".format(run_dir, found))
             # If we can't find it, add to missing runs dictionary.
