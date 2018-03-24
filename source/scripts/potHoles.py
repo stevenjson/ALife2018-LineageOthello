@@ -97,12 +97,15 @@ def main():
             if (not found):
                 missing_runs[run_dir] = {}
                 missing_runs[run_dir]["command"] = " ".join(run.split(" ")[1:])
-                missing_runs[run_dir]["run_dir"] = os.path.join(dest_dir, run_dir)
+                missing_runs[run_dir]["run_dir"] = os.path.join("${DEST_DIR}", run_dir)
         
         print("Total number of missing runs: " + str(len(missing_runs)))
         
         # 3) Build Qsub file. 
         qsub = qsub_base.replace("[[JOB_CONFIG:-t]]", "{}-{}".format(1,len(missing_runs)))
+        qsub += "\n"
+        qsub += "DEST_DIR={}\n".format(dest_dir.strip("/"))
+        qsub += "CONFIG_DIR={}\n".format(config_dir.strip("/"))
         array_id = 1
         for run in missing_runs:
             info = missing_runs[run]
@@ -111,9 +114,9 @@ if [ ${PBS_ARRAYID} -eq [[ARRAY_ID]] ]; then
     RUN_DIR=[[RUN_DIR]]
 '''.replace("[[RUN_DIR]]", info["run_dir"]).replace("[[ARRAY_ID]]", str(array_id))
             
-            
+            qsub += "    mkdir -p ${RUN_DIR}\n"
             qsub += "    cd ${RUN_DIR}\n"
-            qsub += "    cp -R {} .\n".format(os.path.join(config_dir, "*"))
+            qsub += "    cp -R ${CONFIG_DIR}/* .\n"
             qsub += "    {} > run.log\n".format(info["command"])
             qsub += "fi\n\n"
             array_id += 1
