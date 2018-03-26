@@ -1,4 +1,4 @@
-import argparse, os, errno
+import argparse, os, errno, copy
 
 '''
 potHoles.py
@@ -32,21 +32,21 @@ EXEC=command.sh
 def main():
     parser = argparse.ArgumentParser(description="Pot hole filler. MUST have at least 1 not_done log or run_list.")
     parser.add_argument("-d", "--data_directory", type=str, action="append", help="Target experiment directory.")
-    parser.add_argument("-l", "--not_done_log", type=str, action="append", help="Location of log of unfinished jobs.")
     parser.add_argument("-c", "--condition", type=str, action="append", help="At least one given condition string must be job name to include in resubs.")
     parser.add_argument("-r", "--run_list", type=str, action="append", help="Location of run_list that describes original experiment conditions.")
     parser.add_argument("-dest", "--destination", type=str, help="Where to put missing runs")
     parser.add_argument("-config", "--configs", type=str, help="Where to find config directory")
+    parser.add_argument("-u", "--update", type=str, help="Update that indicates run finished (final update)")
 
     args = parser.parse_args()
 
     data_directories = args.data_directory
-    not_done_logs = args.not_done_log
     filter_jobs = bool(args.condition)
     include_conditions = args.condition
     run_lists = args.run_list
     config_dir = args.configs
     dest_dir = args.destination
+    final_update = args.update
     
     def JobFilter(job_name):
         if (not filter_jobs): return True
@@ -56,15 +56,15 @@ def main():
         return False
 
     print("Data directories: {}".format(data_directories))
-    print("Not done logs: {}".format(not_done_logs))
+    # print("Not done logs: {}".format(not_done_logs))
 
     if (filter_jobs):
         print("Filtering jobs on conditions: {}".format(include_conditions))
     if (not data_directories):
         print("Must provide at least one data directory!")
         exit()
-    if (not not_done_logs and not run_lists):
-        print("Must provide at least one log of unfinished jobs or one run_list file!")
+    if (not run_lists):
+        print("Must provide at least one run_list file!")
         exit()
 
     if (run_lists):
@@ -92,8 +92,22 @@ def main():
             run_name = run.split(" ")[0]
             run_dir = "{}_{}".format(run_name, run.split(" ")[3])
             if not JobFilter(run_dir): continue
-            found = (True in [os.path.isdir(os.path.join(data_dir, run_dir)) for data_dir in data_directories])
+            found = False
+            data_directory = None
+            for data_dir in data_directories:
+                found = os.path.isdir(os.path.join(data_dir, run_dir))
+                if (found):
+                    data_directory = data_dir
+                    break
             print("{}: {}".format(run_dir, found))
+            # If we can find it, did it finish?
+            if (found):
+                contents = None
+                with open(os.path.join(data_directory, run_dir), "r") as fp:
+                    contents = fp.read()
+                if not "Update: {} Max score:".format(final_update) in contents:
+                    found = False
+                    print("  --> Unfinished!")
             # If we can't find it, add to missing runs dictionary.
             if (not found):
                 missing_runs[run_dir] = {}
@@ -105,8 +119,8 @@ def main():
         # 3) Build Qsub file. 
         qsub = qsub_base.replace("[[JOB_CONFIG:-t]]", "{}-{}".format(1,len(missing_runs)))
         qsub += "\n"
-        qsub += "DEST_DIR={}\n".format(dest_dir.strip("/"))
-        qsub += "CONFIG_DIR={}\n".format(config_dir.strip("/"))
+        qsub += "DEST_DIR={}\n".format(dest_dir.rstrip("/"))
+        qsub += "CONFIG_DIR={}\n".format(config_dir.rstrip("/"))
         array_id = 1
         for run in missing_runs:
             info = missing_runs[run]
@@ -125,60 +139,6 @@ if [ ${PBS_ARRAYID} -eq [[ARRAY_ID]] ]; then
         with open("missing_runs.qsub", "w") as fp:
             fp.write(qsub)
             
-
-    if (not_done_logs):
-        unfinished_jobs = []
-        # Aggregate unfinished jobs.
-        for log in not_done_logs:
-            with open(log, "r") as fp:
-                unfinished_jobs += [line.split("/")[-2] for line in fp.read().split("\n") if JobFilter(line)]
-
-        print("TOTAL UNFINISHED JOBS (FROM LOGS): {}".format(len(unfinished_jobs)))
-
-        # Find e'rybody. 
-        job_info = {}
-        for job in unfinished_jobs:
-            run_dir = ""
-            for data_dir in data_directories:
-                candidate_dir = os.path.join(data_dir, job)
-                if (os.path.isdir(candidate_dir)):
-                    # Found it!
-                    run_dir = candidate_dir
-                    break
-            # Double check that the command.sh exists.
-            if (run_dir == ""):
-                print("WARNING: could not find run directory for {}".format(job))
-                continue
-            if (not os.path.exists(os.path.join(run_dir, "command.sh"))):
-                print("WARNING: could not find command.sh in found run directory: {}".format(run_dir))
-                continue
-
-            job_info[job] = {}
-            job_info[job]["run_dir"] = run_dir
-
-        print("TOTAL JOBS ABLE TO RESUBMIT: {}".format(len(job_info)))
-
-        qsub = qsub_base.replace("[[JOB_CONFIG:-t]]", "{}-{}".format(1,len(job_info)))
-
-        # Build up a qsub file.
-        # if [ ${PBS_ARRAYID} -eq 1 ]; then 
-        array_id = 1
-        for job in job_info:
-            info = job_info[job]
-            qsub += '''
-if [ ${PBS_ARRAYID} -eq [[ARRAY_ID]] ]; then 
-    RUN_DIR=[[RUN_DIR]]
-fi
-'''.replace("[[RUN_DIR]]", info["run_dir"]).replace("[[ARRAY_ID]]", str(array_id))
-            array_id += 1
-        
-        qsub += "\n\n"
-        qsub += "cd ${RUN_DIR}\n"
-        qsub += "mv run.log bak_run.log\n"
-        qsub += "./${EXEC}\n"
-
-        with open("fill_jobholes.qsub", "w") as fp:
-            fp.write(qsub)
 
 if __name__ == "__main__":
     main()
