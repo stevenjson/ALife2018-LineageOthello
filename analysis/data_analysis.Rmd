@@ -94,19 +94,19 @@ The relationship between max deleterious steps and dominant deleterious steps st
 ### Deleterious steps:
 
 ```{r, echo=FALSE}
-ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=max_pairwise_distance, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=max_pairwise_distance, color=mutation_rate)) + facet_wrap(~problem, scales="free") + theme_classic()
 ```
 
 ```{r, echo=FALSE}
-ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=dominant_deleterious_steps, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
-ggsave("../figs/dom_deleterious_mutation_rate.png")
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=dominant_deleterious_steps, color=mutation_rate)) + facet_wrap(~problem, scales="free") + theme_classic()
+ggsave("../figs/dom_deleterious_mutation_rate.png", width = 3.5)
 ```
 
 There's possibly an interesting story to tell about variance:
 
 ```{r, echo=FALSE}
-ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=variance_deleterious_steps, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
-ggsave("../figs/variance_deleterious_mutation_rate.png")
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=variance_deleterious_steps, color=mutation_rate)) + facet_wrap(~problem, scales="free") + theme_classic()
+ggsave("../figs/variance_deleterious_mutation_rate.png", width = 3.5)
 ```
 
 ### Mutation magnitude
