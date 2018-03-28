@@ -103,7 +103,7 @@ def main():
             # If we can find it, did it finish?
             if (found):
                 contents = None
-                with open(os.path.join(data_directory, run_dir), "r") as fp:
+                with open(os.path.join(data_directory, run_dir, "run.log"), "r") as fp:
                     contents = fp.read()
                 if not "Update: {} Max score:".format(final_update) in contents:
                     found = False
