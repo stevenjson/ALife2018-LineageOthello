@@ -1,0 +1,122 @@
+---
+title: "Lineage Metrics Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(readr)
+
+```
+
+
+```{r, echo=FALSE}
+alex_real_value_data <- read_csv("alex_real_value_data.csv")
+emily_real_value_data <- read_csv("real_value_data.csv")
+real_value_data <- merge(alex_real_value_data, emily_real_value_data, all = TRUE)
+real_value_data$problem <- sapply(as.character(real_value_data$p),switch,"0"="Himmelblau","1"="Six-hump camel back","2"="Shubert", "6"="Composition function 2")
+real_value_data$problem <- as.factor(real_value_data$problem)
+real_value_data$selection <- sapply(as.character(real_value_data$selection),switch,"0"="Tournament","1"="Lexicase","2"="Eco-EA", "3"="MAP-Elites", "4"="Roulette", "5"="Drift")
+real_value_data$selection <- as.factor(real_value_data$selection)
+real_value_data$seed <- as.factor(real_value_data$seed)
+real_value_data$ts <- as.factor(real_value_data$ts)
+real_value_data$elite <- as.factor(real_value_data$elite)
+real_value_data$mutation_rate <- as.factor(real_value_data$mutation_rate)
+tournament_data <- subset(real_value_data, real_value_data$selection == "Tournament" & real_value_data$elite == 0)
+```
+
+```{r}
+#see how many finished
+summary(subset(real_value_data, real_value_data$update == 5000))
+
+```
+
+First, let's make sure there's nothing weird going on with fitness:
+
+```{r, echo=FALSE}
+ggplot(tournament_data) + stat_summary(aes(x=update, y=max_fitness, color=ts, fill=ts), fun.data="mean_cl_boot", geom="smooth") + theme_classic() +facet_wrap(~problem*mutation_rate, ncol=8, scales="free")
+ggsave("../figs/all_tournament_fitness.png")
+```
+
+The most important thing to observe from that is probably that mutation rate seems to have a notable effect on the fitness dynamics of the Shubert function.
+
+Onto the metrics.
+
+## Phenotypic volatility
+
+
+```{r, echo=FALSE}
+ggplot(tournament_data) + stat_summary(aes(x=update, y=mean_phenotypic_volatility, color=ts, fill=ts), fun.data="mean_cl_boot", geom="smooth") + theme_classic() +facet_wrap(~problem*mutation_rate, ncol=8, scales="free")
+ggsave("../figs/all_phenotypic_volatility.png")
+```
+
+Oh right, that one kind of breaks in these problems...
+
+## Phenotype count
+
+```{r, echo=FALSE}
+ggplot(tournament_data) + stat_summary(aes(x=update, y=mean_unique_phenotypes, color=ts, fill=ts), fun.data="mean_cl_boot", geom="smooth") + theme_classic() +facet_wrap(~problem*mutation_rate, ncol=8, scales="free")
+ggsave("../figs/all_phenotype_count.png")
+
+```
+
+These too.
+
+## Deleterious steps
+
+```{r, echo=FALSE}
+ggplot(tournament_data) + stat_summary(aes(x=update, y=mean_deleterious_steps, color=ts, fill=ts), fun.data="mean_cl_boot", geom="smooth") + theme_classic() +facet_wrap(~problem*mutation_rate, ncol=8, scales="free")
+ggsave("../figs/all_deleterious_steps.png")
+
+```
+
+In general, weaker selection allows more deleterious steps, as does higher mutation rate.
+
+```{r, echo=FALSE}
+ggplot(tournament_data) + stat_summary(aes(x=update, y=dominant_deleterious_steps, color=ts, fill=ts), fun.data="mean_cl_boot", geom="smooth") + theme_classic() +facet_wrap(~problem*mutation_rate, ncol=8, scales="free")
+ggsave("../figs/dominant_deleterious_steps.png")
+
+```
+
+Looks pretty similar.
+
+```{r, echo=FALSE}
+ggplot(subset(tournament_data, tournament_data$update==5000)) + geom_point(aes(x=max_deleterious_steps, y=dominant_deleterious_steps, color=ts)) + facet_wrap(~problem*mutation_rate, ncol=8, scales="free") + theme_classic()
+```
+
+The relationship between max deleterious steps and dominant deleterious steps stops being a straight line at higher mutation rates.
+
+# Graphs for paper
+
+## Varying mutation rate:
+
+### Deleterious steps:
+
+```{r, echo=FALSE}
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=max_pairwise_distance, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
+```
+
+```{r, echo=FALSE}
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=dominant_deleterious_steps, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
+ggsave("../figs/dom_deleterious_mutation_rate.png")
+```
+
+There's possibly an interesting story to tell about variance:
+
+```{r, echo=FALSE}
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=variance_deleterious_steps, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
+ggsave("../figs/variance_deleterious_mutation_rate.png")
+```
+
+### Mutation magnitude
+
+```{r, echo=FALSE}
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4)) + geom_boxplot(aes(x=mutation_rate, y=mean_normal_mutations_on_lineage, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
+```
+
+Presumably the reason that .1 is ludircously high in everything except camel-back is that on the other landscapes it's jumping between peaks. Let's look at it without .1:
+
+```{r, echo=FALSE}
+ggplot(subset(tournament_data, tournament_data$update==5000 & tournament_data$ts == 4 & as.numeric(tournament_data$mutation_rate) < 8)) + geom_boxplot(aes(x=mutation_rate, y=mean_normal_mutations_on_lineage, color=mutation_rate)) + facet_wrap(~problem, ncol=8, scales="free") + theme_classic()
+```
