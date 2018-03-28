@@ -88,6 +88,7 @@ def main():
         print("Total number of runs: " + str(len(all_runs)))
         # 2) Try to find run
         missing_runs = {}
+        old_run_log = []
         for run in all_runs:
             run_name = run.split(" ")[0]
             run_dir = "{}_{}".format(run_name, run.split(" ")[3])
@@ -113,8 +114,12 @@ def main():
                 missing_runs[run_dir] = {}
                 missing_runs[run_dir]["command"] = " ".join(run.split(" ")[1:])
                 missing_runs[run_dir]["run_dir"] = os.path.join("${DEST_DIR}", run_dir)
+                old_run_log.append(os.path.join(data_directory, run_dir))
         
         print("Total number of missing runs: " + str(len(missing_runs)))
+
+        with open("missing_runs.log", "w") as fp:
+            fp.write("\n".join(old_run_log))
         
         # 3) Build Qsub file. 
         qsub = qsub_base.replace("[[JOB_CONFIG:-t]]", "{}-{}".format(1,len(missing_runs)))
