@@ -202,8 +202,6 @@
 		<!-- Default lighting injected by A-Frame. -		-->
 		<!-- <a-entity light="type: ambient; color: #fff"></a-entity> -->
 
-		<a-entity light="type: directional; target: middle; color: #FFF; intensity: 0.5" position="2 4 5"></a-entity>
-		<a-entity light="intensity: 2; distance: 1; angle: 90; target: middle; type:directional" position="5 5 3"></a-entity>
 
         <a-entity id="cameraRig" movement-controls>
             <!-- camera -->
@@ -242,6 +240,9 @@
 		opacityMin: 0.99; 
 		 width: 3; height: 3;" scale="1 1 1">
 		</a-entity>		
+
+				<a-entity light="type: directional; target: middle; color: #FFF; intensity: 0.5" position="2 4 5"></a-entity>
+		<a-entity light="intensity: 2; distance: 1; angle: 90; target: middle; type:directional" position="5 5 3"></a-entity>
 
 		<a-entity
 			id="target"
