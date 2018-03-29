@@ -119,73 +119,6 @@
 </head>
 <body>
 
-	<label> Fitness landscape:
-		<select id="problem", name="problem">
-			<option value="4">Himmelblau</option>
-			<option value="5" selected>Six-Hump Camel Back</option>
-			<option value="6">Shubert 2D</option>
-			<option value="12">Composition Function 2</option>
-		</select>
-	</label>
-
-	<label> Z separation:
-		<input id="z_slider" type="range" min="0" max=".25" step="0.0001" value=".01">
-	</label>
-	
-	<label> Draw lines? 
-		<input id="lines_checkBox" type="checkbox">
-	</label>
-
-	<label> Draw startpoints? 
-		<input id="starts_checkBox" type="checkbox">
-	</label>
-
-	<label> Draw endpoints? 
-		<input id="ends_checkBox" type="checkbox">
-	</label>
-
-	<label> Elite? 
-		<input id="elite_checkBox" type="checkbox">
-	</label>
-
-	<label> Selection scheme:
-		<select id="selection", name="selection">
-			<option value="0">Tournament</option>
-			<option value="1">Lexicase</option>
-			<option value="2">Eco-EA</option>
-			<option value="4">Roulette</option>
-		</select>
-	</label>
-
-	<label> Mutation rate:
-		<select id="mut_rate", name="mut_rate">
-			<option value="0.1">0.1</option>
-			<option value="0.01">0.01</option>
-			<option value="0.001">0.001</option>
-			<option value="0.0001">0.0001</option>
-		</select>
-	</label>
-
-	<label> Tournament size:
-		<select id="tour_size", name="tour_size">
-			<option value="2">2</option>
-			<option value="4">4</option>
-			<option value="8">8</option>
-			<option value="16">16</option>
-		</select>
-	</label>
-
-	<label> Epsilon:
-		<select id="epsilon", name="epsilon">
-			<option value="0">0</option>
-			<option value="0.01">0.01</option>
-			<option value="1e-09">1e-09</option>
-			<option value="1e-12">1e-12</option>
-		</select>
-	</label>
-
-	<button type="button" onclick="load_data()">Redraw</button>
-
 	<script type="text/javascript">
 		document.addEventListener('DOMContentLoaded',function() {
 			document.querySelector('select[name="problem"]').onchange=problemChangeEventHandler;	
@@ -413,6 +346,74 @@
 	</a-scene>
 
 
+	<label> Fitness landscape:
+		<select id="problem", name="problem">
+			<option value="4">Himmelblau</option>
+			<option value="5" selected>Six-Hump Camel Back</option>
+			<option value="6">Shubert 2D</option>
+			<option value="12">Composition Function 2</option>
+		</select>
+	</label>
+
+	<label> Z separation:
+		<input id="z_slider" type="range" min="0" max=".25" step="0.0001" value=".01">
+	</label>
+	
+	<label> Draw lines? 
+		<input id="lines_checkBox" type="checkbox">
+	</label>
+
+	<label> Draw startpoints? 
+		<input id="starts_checkBox" type="checkbox">
+	</label>
+
+	<label> Draw endpoints? 
+		<input id="ends_checkBox" type="checkbox">
+	</label>
+
+	<label> Elite? 
+		<input id="elite_checkBox" type="checkbox">
+	</label>
+
+	<label> Selection scheme:
+		<select id="selection", name="selection">
+			<option value="0">Tournament</option>
+			<option value="1">Lexicase</option>
+			<option value="2">Eco-EA</option>
+			<option value="4">Roulette</option>
+		</select>
+	</label>
+
+	<label> Mutation rate:
+		<select id="mut_rate", name="mut_rate">
+			<option value="0.1">0.1</option>
+			<option value="0.01">0.01</option>
+			<option value="0.001">0.001</option>
+			<option value="0.0001">0.0001</option>
+		</select>
+	</label>
+
+	<label> Tournament size:
+		<select id="tour_size", name="tour_size">
+			<option value="2">2</option>
+			<option value="4">4</option>
+			<option value="8">8</option>
+			<option value="16">16</option>
+		</select>
+	</label>
+
+	<label> Epsilon:
+		<select id="epsilon", name="epsilon">
+			<option value="0">0</option>
+			<option value="0.01">0.01</option>
+			<option value="1e-09">1e-09</option>
+			<option value="1e-12">1e-12</option>
+		</select>
+	</label>
+
+	<button type="button" onclick="load_data()">Redraw</button>
+
+	
 </body>
 
 </html>
