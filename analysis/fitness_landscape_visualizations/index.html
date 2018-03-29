@@ -205,7 +205,6 @@
 		palette:parula;
 		metalness:.5;
 		roughness:0;
-		emissiveIntensity:0;
 		stackBlurRadius:1;		
 		stretch:true;
 		flipPalette:false; 
@@ -232,7 +231,7 @@
 		<a-entity light="type: directional; target: middle; color: #FFF; intensity: 0.5" position="2 4 5"></a-entity>
 		<a-entity light="intensity: 2; distance: 1; angle: 90; target: middle; type:directional" position="5 5 3"></a-entity>
 
-        <a-entity id="cameraRig">
+        <a-entity id="cameraRig" movement-controls>
             <!-- camera -->
 			<a-entity
 			camera="active:true; spectator:true"
