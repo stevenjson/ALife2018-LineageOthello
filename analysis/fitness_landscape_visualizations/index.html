@@ -195,33 +195,7 @@
 
 		</a-assets>
 
-
-
-		<a-entity daydream-controls></a-entity>
-
-		<!-- Default lighting injected by A-Frame. -		-->
-		<!-- <a-entity light="type: ambient; color: #fff"></a-entity> -->
-
-
-        <a-entity id="cameraRig" movement-controls>
-            <!-- camera -->
-			<a-entity
-			camera="active:true; spectator:true"
-			id="camera_orbit"
-			position="0 2 3"
-			look-controls
-			wasd-controls="fly:true"
-			orbit-controls="
-			autoRotate: false;
-			target: #target;
-			enableDamping: true;
-			dampingFactor: 0.125;
-			rotateSpeed:0.15;
-			zoomSpeed:0.5;
-			maxPolarAngle:1.85;
-			minDistance:1;
-			maxDistance:10;">
-						<a-entity	
+		<a-entity	
 		id="middle"
 		aframe-heatmap3d="
 		src: #fun5;
@@ -241,9 +215,6 @@
 		 width: 3; height: 3;" scale="1 1 1">
 		</a-entity>		
 
-				<a-entity light="type: directional; target: middle; color: #FFF; intensity: 0.5" position="2 4 5"></a-entity>
-		<a-entity light="intensity: 2; distance: 1; angle: 90; target: middle; type:directional" position="5 5 3"></a-entity>
-
 		<a-entity
 			id="target"
 			geometry="primitive: box"
@@ -251,6 +222,33 @@
 			material="visible:false">
 
 		</a-entity>
+
+		<a-entity daydream-controls></a-entity>
+
+		<!-- Default lighting injected by A-Frame. -		-->
+		<!-- <a-entity light="type: ambient; color: #fff"></a-entity> -->
+
+		<a-entity light="type: directional; target: middle; color: #FFF; intensity: 0.5" position="2 4 5"></a-entity>
+		<a-entity light="intensity: 2; distance: 1; angle: 90; target: middle; type:directional" position="5 5 3"></a-entity>
+
+        <a-entity id="cameraRig" movement-controls>
+            <!-- camera -->
+			<a-entity
+			camera="active:true; spectator:true"
+			id="camera_orbit"
+			position="0 2 3"
+			look-controls
+			wasd-controls="fly:true"
+			orbit-controls="
+			autoRotate: false;
+			target: #target;
+			enableDamping: true;
+			dampingFactor: 0.125;
+			rotateSpeed:0.15;
+			zoomSpeed:0.5;
+			maxPolarAngle:1.85;
+			minDistance:1;
+			maxDistance:10;">
 			</a-entity>
             <a-entity id="lefthand" camera-transform-controls-hand="hand:left" vive-controls="hand: left" oculus-touch-controls="hand: left" windows-motion-controls="hand: left"></a-entity>
             <a-entity id="righthand" camera-transform-controls-hand="hand:right" vive-controls="hand: right" oculus-touch-controls="hand: right" windows-motion-controls="hand: right"></a-entity>
