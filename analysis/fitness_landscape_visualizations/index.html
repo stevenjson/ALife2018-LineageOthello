@@ -2,7 +2,8 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Fitness landscapes</title>
-    <script src="https://aframe.io/releases/0.7.0/aframe.min.js"></script>
+    	<script src="https://aframe.io/releases/0.7.0/aframe.min.js"></script>
+	<script src="https://unpkg.com/aframe-look-at-component@0.5.1/dist/aframe-look-at-component.min.js"></script>
 
 	<!-- <script src="libraries/aframe-v0.8.0.min.js"></script> -->
 	<script src="libraries/stackblur.min.js"></script>
@@ -195,7 +196,7 @@
 
 		</a-assets>
 
-		<a-entity	
+		<a-entity look-at="[camera]"	
 		id="middle"
 		aframe-heatmap3d="
 		src: #fun5;
@@ -203,7 +204,7 @@
 		ignoreZeroValues:false; 
 		invertElevation:true;
 		palette:parula;
-		metalness:.2;
+		metalness:1;
 		roughness:0;
 		stackBlurRadius:1;		
 		stretch:true;
