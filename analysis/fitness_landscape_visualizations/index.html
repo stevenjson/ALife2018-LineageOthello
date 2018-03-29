@@ -195,33 +195,7 @@
 
 		</a-assets>
 
-		<a-entity	
-		id="middle"
-		aframe-heatmap3d="
-		src: #fun5;
-		srcMobile: #fun5;
-		ignoreZeroValues:false; 
-		invertElevation:true;
-		palette:parula;
-		metalness:.5;
-		roughness:0;
-		stackBlurRadius:1;		
-		stretch:true;
-		flipPalette:false; 
-		renderMode: surface;
-		scaleOpacity: false;
-		scaleOpacityMethod:log2;
-		opacityMin: 0.99; 
-		 width: 3; height: 3;" scale="1 1 1">
-		</a-entity>		
 
-		<a-entity
-			id="target"
-			geometry="primitive: box"
-			position="0 0 0"
-			material="visible:false">
-
-		</a-entity>
 
 		<a-entity daydream-controls></a-entity>
 
@@ -249,6 +223,33 @@
 			maxPolarAngle:1.85;
 			minDistance:1;
 			maxDistance:10;">
+						<a-entity	
+		id="middle"
+		aframe-heatmap3d="
+		src: #fun5;
+		srcMobile: #fun5;
+		ignoreZeroValues:false; 
+		invertElevation:true;
+		palette:parula;
+		metalness:.5;
+		roughness:0;
+		stackBlurRadius:1;		
+		stretch:true;
+		flipPalette:false; 
+		renderMode: surface;
+		scaleOpacity: false;
+		scaleOpacityMethod:log2;
+		opacityMin: 0.99; 
+		 width: 3; height: 3;" scale="1 1 1">
+		</a-entity>		
+
+		<a-entity
+			id="target"
+			geometry="primitive: box"
+			position="0 0 0"
+			material="visible:false">
+
+		</a-entity>
 			</a-entity>
             <a-entity id="lefthand" camera-transform-controls-hand="hand:left" vive-controls="hand: left" oculus-touch-controls="hand: left" windows-motion-controls="hand: left"></a-entity>
             <a-entity id="righthand" camera-transform-controls-hand="hand:right" vive-controls="hand: right" oculus-touch-controls="hand: right" windows-motion-controls="hand: right"></a-entity>
