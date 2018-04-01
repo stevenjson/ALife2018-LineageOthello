@@ -77,44 +77,95 @@
 
 \section{Introduction}
 
-Evolution is an emergent effect of events (\textit{e.g.} replication, variation, and competition) that occur on a much finer-grained temporal scale. While this is a large part of why it is so fascinating, it also presents challenges to studying the short-term mechanisms that govern long-term results. In computational evolutionary systems, we theoretically have adequate data to untangle these mechanisms. In practice, though, gathering appropriate data to do so can be challenging. Moreover, because of the vast difference between the scales that the causes and effects occur on, the quantity of such data can be overwhelming. Both of these problems can be mitigated with a standardized set of diagnostic summary metrics that paint a picture of shorter-term evolutionary dynamics within a population. Here, we  introduce a suite of such metrics and provide an intuition for what they can tell us about evolution.
-% We test our intuitions on a set of two-dimensional, real-valued optimization problems under a range of mutation rates and selection strengths. 
+Evolution is an emergent effect of events (\textit{e.g.} replication, variation, and competition) that occur on a much finer-grained temporal scale. While this is a large part of why it is so fascinating, it also presents challenges to studying the short-term mechanisms that govern long-term results. In computational evolutionary systems, we theoretically have adequate data to untangle these mechanisms. In practice, though, gathering appropriate data to do so can be challenging. Moreover, because of the vast difference between the scales that the causes and effects occur on, the quantity of such data can be overwhelming. Both of these problems can be mitigated with a standardized set of diagnostic summary metrics that paint a picture of shorter-term evolutionary dynamics within a population. Here, we introduce a suite of such metrics that operate on lineages and provide an intuition for what they can tell us about evolution.
 
-% Talk about abstract idea of a lineage being a sequence of states
-% A lineage can be operationally defined as a sequence of states
-% talk about different things those states could be
+% Useful suites of metrics in ALIFE?
+% - Activity statistics
+% - ... 
 
-%  Talk about metrics being a useful concept for abstracting sequence of states (because doing stats on sequences of states is hard)
+A lineage describes a continuous line of descent, linking ancestors and their descendants. A complete lineage can provide a post-hoc, step-by-step guide to the evolution of an extant organism where each step involves replication and inherited variation. Indeed, lineage analyses are a powerful tool for disentangling the evolution of complexity in both natural and digital systems; digital systems, however, allow for fine-grained lineage tracking at resolutions that are impossible in modern wet lab experiments, allowing us to replay the tape of life in exacting detail to tease apart the evolutionary recipe for whatever complex feature we happen to be interested in. 
+Yet, tracking the full details of a single lineage, much less a population of lineages, can be computationally expensive and will inevitably generate an unwieldy amount of data that can be challenging to visualize and interpret [CITATIONS]. Summary statistics can help alleviate these issues by focusing on general trends(?) for a population rather than for each individual.
+% @AML: Need a transition from here to next paragraph about how diagnostic/summary statistics can help
+% @SPJ: Something like this?
 
-%Lit review - people have made pictures but it's hard to draw abstract large-scale inferences from them
-
-% Introduce metrics
-
-%For the most part, the metrics we propose here will center around the evolutionary history of lineages in the population.
-
-% @AML: Currently taking a crack at this bit of the intro (introducing lineages, etc) on paper at the moment! 
-A lineage describes a continuous line of descent, linking ancestors and their descendants. A complete lineage can provide a post-hoc, step-by-step guide to the evolution of an extant organism where each step involves replication and inherited variation. Indeed, lineage analyses are a powerful tool for disentangling the evolution of complexity in both natural and digital systems; digital systems, however, allow for fine-grained lineage tracking at resolutions that are impossible in modern web lab experiments, allowing us to replay the tape of life in exacting detail to tease apart the evolutionary recipe for whatever complex feature we happen to be interested in. 
-% Yet, tracking the full details of a single lineage, much less a population of lineages, can be computationally expense and will inevita
-
-% Something about: we often look at fitness over a lineage (i.e. fitness over time), we can look at other things... 
-
+Here, we demonstrate three types of lineage measurements: lineage length, mutation accumulation, and phenotypic volatility. For each, we discuss their application and our intuitions for what they can tell us about evolution. We evaluate our intuitions on a set of two-dimensional, real-valued optimization problems under a range of mutation rates and selection strengths.   
+% @AML: we'll want to say something here about how we talk about how these metrics extend to genetically discrete organisms (e.g. GP)
 
 \section{Metrics}
+% Outlining some points to (maybe) make here; probably too bogged down in details; not even sure we want to talk about lineages as graphs:
+% - Apply metrics in context of asexual populations
+% - Establish a framework from which to think about metrics (not novel, but rarely formalized)
+% 	 - We treat lineages as sequences of states where each state represents an individual and transitions between states represent parent-offspring relationships.
+%      - More formally, lineages are directed acyclic graphs where internal nodes have in-degree = 1 (parent), out-degree = 1 (offspring). Original ancestor (in digital evolution, often seed of population) w/out-degree = 1. Extant individual w/in-degree = 1.
+%      - Transitions specify relevant variation introduced into offspring (e.g. mutations)
+%      - States specify relevant genotype and phenotype information (e.g. genome, location in space, behavior, etc) -- anything we might want to measure over a lineage
+%      - Becomes more complicated with sexual populations, but we'll stick with asexual assumption for this. 
+%  - Already, framework affords certain questions:
+%     - How many individuals are along the lineage? 
+%     - Total # and magnitude of mutations along lineage?
+%     - Distribution of mutation types (ins vs. sub/beneficial vs. deleterious)?
+%  - Further abstractions:
+%      - Sequence of genotypes along lineage (where each genotype may represent multiple individuals)
+%      - Sequence of phenotypes along lineage (where each phenotype may represent multiple individuals)
+%      - Still further abstraction: sequence of a particular aspect of genotype (e.g. genetic marker)/phenotype (e.g. location) along lineage
+%  - We discuss three classes of lineage metrics within this framework: lineage length, mutation accumulation, and phenotypic volatility. 
+%  - For each, we discuss our intuition for what they can tell us (alone and in combination) about evolution. 
 
 \subsection{Lineage Length}
-\subsection{Mutation Accumulation} 
-% Count/Magnitude (by type, aggregated etc
+% Define/explanation
+% 	- Within context of framework, lineage length is simply measure of number of states in the graph/sequence.
+%   - What this means will depend on what states represent?
+%       - number of individuals along lineage 
+%             - More interesting in experiments where generations are not dictated by system, but rather by life history strategies of organisms
+%             - Give you a diagnostic for replication rate (r vs. k strategy)
+%      - number of genotypes along lineage
+%            - length = 1: no mutations
+%            - length = number of individuals: mutation in every replication
+%            - Intuitively, should be higher at high mutation rates, lower at low mutation rates. 
+%      - number of phenotypes along lineage
+%            - low: evidence for static environment
+%            - high: might be indicative of a changing environment or ecological interactions
+%            - if number of genotypes is high, but number of phenotypes low, probably in a neutral fitness landscape
+%      - various subsets of genotype/phenotype
+%           - location in space (environment type): useful for looking at lineage through heterogeneous landscape
+%           - change in particular phenotypic trait
+%           - change in genetic markers
+%           - Distributions of above two lengths can tell you useful things about drift, selection, etc.
+
+% Here, we...  
+
+\subsection{Mutation Accumulation}
+Mutation Accumulation defines a set of measurements that track mutational changes across a lineage. These changes can be measured in a variety of ways, such as the magnitude of the change (for real-valued genomes), or the total count of changes (for discrete-valued genomes). The type of a mutation can also be tracked, and can provide insight into the distribution of mutation types for a given lineage. In conjunction with collected fitness information, the class of a mutation (\textit{e.g.} beneficial, deleterious, or neutral) can also be tracked. % @SPJ: TODO
+% Mutation accumulation over a lineage 
+%  - Measured in a variety of ways
+%   - For real-valued genomes, we can track magnitudes of changes
+%   - For discrete-valued genomes, we can track counts of changes
+%      - Track by type to get distribution of mutation types
+%   - In conjunction with fitness information, can track classes of mutation: beneficial, deleterious, neutral
+%      - Again, can extract a distribution; different environments/experiments, you might expect different distributions
+%      - Importance of deleterious steps; valley crossing, etc
+
+% Here, we... 
+
 \subsection{Phenotypic Volatility}
+% Define/describe
+% .... 
 % Useful things that this metric could identify:
-% - Mutational bet hedging (h
+% - Mutational bet hedging (high volatility)
 % - Plasticity (high volatility)
 % - Neutral landscapes (expect low volatility)
 
+% Here, we... 
+
 \subsection{Summary statistics}
 
-\section{Test Problems}
-To understand the metrics defined above, the test problems used need to be well understood and studied. The benchmark functions from [URL OR TITLE?] meet both of these requirements and allow us to visualize the actual fitness landscape, due to the low dimensionality of the problems. For each problem, the X and Y coordinates offered by a given organism are translated by the function into a fitness value. We chose a diverse subset of these functions (Himmelblau, Shubert, Composition Function 2, and Six-Humped Camel Back) as our test problems in order to gain a broad understanding of our metrics.
+Each of these metrics can be calculated for each member of the population at each time step. Doing so, however, would produce an amount of data so large that it would be difficult to make sense of. Instead, we need to come up with ways to generate useful summaries. There are two main approaches to doing so: 1) choose a small number of representative lineages from a given time point, 2) collect summary statistics about the distribution of metric values across the population.
 
+
+\section{Test Problems}
+To understand the metrics defined above, the test problems used need to be well understood and studied. The benchmark functions from the GECCO Competition on Niching Methods meet both of these requirements and allow us to visualize the actual fitness landscape, due to the low dimensionality of the problems ~\citep{li_benchmark_2013}. For each problem, the X and Y coordinates offered by a given organism are translated by the function into a fitness value. We chose a diverse subset of these functions (Himmelblau, Shubert, Composition Function 2, and Six-Humped Camel Back) as our test problems in order to gain a broad understanding of our metrics. We used the implementations of these problems at https://github.com/mikeagn/CEC2013/ (C++ for fitness calculations during evolution, Python for post-hoc analysis).
+
+\section{Implementation}
 
 \section{Data Analysis}
 
@@ -124,16 +175,18 @@ To understand the metrics defined above, the test problems used need to be well 
 %The metrics we propose here can help provide a check on this behavior, by making information about underlying evolutionary dynamics more readily accessible. They can only have that effect, however, if we completely understand what they are telling us about the way populations under different conditions are traversing different fitness landscapes. In order for these metrics to be useful for diagnosing the behavior of an evolving population, we need to establish ground truth for what underlying evolutionary dynamics are implied by different values of the metrics. For the purposes of building this intuition on a solid foundation, we wanted to be able to visualize the full evolutionary history of each population as it traversed the fitness landscape.
 
 %To this end, we chose problems for which we could perfectly visualize the fitness landscape, and kept track of the complete evolutionary history of all members of the population. With these data, we were able to overlay successful lineages on top of the fitness landscape. Visualizing all lineages in each experimental condition in this way gave us an efficient check on our understanding of the underlying evolutionary dynamics in that condition. 
+In order to make these metrics useful in the long run, it is critical that we have an accurate understanding of how various measurements correspond to the actual behavior of lineages. The most direct way to confirm our expectations is to visualize the path that each lineage takes across the fitness landscape, mapping the x, y, and z (fitness) coordinates of each ancestor of each member of the population. Creating such a visualization entails incorporating a large quantity of information into a limited space. When projected onto two dimensions, lineages can obscure parts of the fitness landscape (and each other). To mitigate this problem, we built a thee-dimesnional visualization using the A-Frame Framework [cite].
 
-Displaying the complete history of an evolving population on a three-dimensional fitness landscape entails incorporating a large quantity of information into a limited space. When projected onto two dimensions, lineages can obscure parts of the fitness landscape (and each other). To mitigate this problem, we built the visualization using the A-Frame Framework. A-Frame supports building three dimensional scenes and rendering them to a variety of platforms. In the simplest case, the visualization is rendered in WebGL, allowing it to be viewed in a standard web browser. Mouse interactions such as rotation make it possible to view the visualization from all angles, and WebGL's use of the graphics card allows it to render data-rich visualizations. 
-
-A-Frame also supports rendering the page with WebVR, allowing it to be viewed using various virtual reality headsets. These platforms allow the user to explore the data in a truly three-dimensional environment. Different headsets support different amounts of interaction. For the data interpretation in this paper, we used an Oculus Rift to provide us with fine-grained control of which part of the visualization we were looking at.
+A-Frame supports building three dimensional scenes and rendering them to a variety of platforms. In the simplest case, the visualization is rendered in WebGL, allowing it to be viewed in a standard web browser. Mouse interactions such as rotation make it possible to view the visualization from all angles, and WebGL's use of the graphics card allows it to render data-rich visualizations. A-Frame also supports rendering the page with WebVR, allowing it to be viewed using various virtual reality headsets. These platforms allow the user to explore the data in a truly three-dimensional environment. Different headsets support different amounts of interaction. For the data interpretation in this paper, we used an Oculus Rift to provide us with fine-grained control of which part of the visualization we were looking at.
 
 
 \section{Results and Discussion}
 % Changing mutation: here's what happens when we change mutation on each problem
 \begin{figure}
 \includegraphics[width=3.5in]{figs/dom_deleterious_mutation_rate.png}
+\end{figure}
+\begin{figure}
+\includegraphics[width=3.5in]{figs/variance_deleterious_mutation_rate.png}
 \end{figure}
 
 % - Metric 1
@@ -159,25 +212,6 @@ A-Frame also supports rendering the page with WebVR, allowing it to be viewed us
 
 \footnotesize
 \bibliographystyle{apalike}
-\bibliography{example} % replace by the name of your .bib file
-
-
-% \section{Text Bank Because I'm not totally sure where things should go}
-% % Some gibberish on lineages
-% A lineage describes a chain of ancestors and their descendants where links in the chain are (typically) connected via parent-offspring relationships. In nature, every extant individual has a unique lineage that can be traced back to a single common ancestor. Depending on the modes of replication and variation employed along the lineage (\textit{e.g.} sexual reproduction, horizontal gene transfer), a lineage can be more or less challenging to disentangle. 
-% % something something something, we focus on asexual populations w/no HGT because easy starting place. 
-
-% % Some gibberish on how we can represent lineages as sequences of states
-% Lineages can be imagined as a sequence of states where each state represents an individual. We can characterize each of these states: a phenotype, a genotype, a set of mutations (which may be empty) that differentiate genotype from parent genotype, time of birth/death, etc. 
-% Given sequences, can apply diagnostic metrics...
-
-% % Some gibberish on abstractions over the sequences of states
-% We can start to make abstractions: state = genotype, state = phenotype, state = location in environment.
-% Lineage length is measured over these abstractions:
-% %- Length in number of individuals 
-% %- Length in number of genotypes
-% %- Length in number of phenotypes
-
-
+\bibliography{Zotero} % replace by the name of your .bib file
 
 \end{document}
