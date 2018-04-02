@@ -66,12 +66,29 @@ def main():
 
 		path = []
 		fits = []
+		x_magnitude = 0
+		y_magnitude = 0
+		total_magnitude = 0
+		deleterious_steps = 0
+		ben_steps = 0
+		neutral_steps = 0
 		while (curr_id > 1):
 			# print(df.loc[curr_id, :])
 			fits.append(df.loc[curr_id, "fitness"])
+			
 			path.append(" ".join(["{:.2f}".format(i) for i in [df.loc[curr_id, "x"], df.loc[curr_id, "y"], df.loc[curr_id, "fitness"]]]))
 			if (df.loc[curr_id, "parent_id"] == 1):
 				break
+			x_magnitude += abs(df.loc[df.loc[curr_id, "parent_id"], "x"] - df.loc[curr_id, "x"]) 
+			y_magnitude += abs(df.loc[df.loc[curr_id, "parent_id"], "y"] - df.loc[curr_id, "y"])
+			total_magnitude += abs(df.loc[df.loc[curr_id, "parent_id"], "x"] - df.loc[curr_id, "x"]) + abs(df.loc[df.loc[curr_id, "parent_id"], "y"] - df.loc[curr_id, "y"])
+			if (df.loc[curr_id, "fitness"] > df.loc[df.loc[curr_id, "parent_id"], "fitness"]):
+				ben_steps += 1
+			elif (df.loc[curr_id, "fitness"] == df.loc[df.loc[curr_id, "parent_id"], "fitness"]):
+				neutral_steps += 1
+			else:
+				deleterious_steps += 1
+				
 			curr_id = df.loc[curr_id, "parent_id"]
 
 		paths.append(",".join(path))
@@ -86,6 +103,9 @@ def main():
 		temp["rolling_mean_500_volatility"] = fits.rolling(500).mean().var()
 		temp["rolling_mean_100_volatility"] = fits.rolling(100).mean().var()
 		temp["rolling_mean_50_volatility"] = fits.rolling(50).mean().var()
+		temp["x_magnitude"] = x_magnitude
+		temp["y_magnitude"] = y_magnitude
+		temp["total_magnitude"] = total_magnitude
 
 		all_data = pd.concat([all_data, temp])
 
