@@ -77,7 +77,7 @@ def main():
 			# print(df.loc[curr_id, :])
 			fits.append(df.loc[curr_id, "fitness"])
 			
-			path.append(" ".join(["{:.2f}".format(i) for i in [df.loc[curr_id, "x"], df.loc[curr_id, "y"], df.loc[curr_id, "fitness"]]]))
+			# path.append(" ".join(["{:.2f}".format(i) for i in [df.loc[curr_id, "x"], df.loc[curr_id, "y"], df.loc[curr_id, "fitness"]]]))
 			if (df.loc[curr_id, "parent_id"] == 1):
 				break
 			x_magnitude += abs(df.loc[df.loc[curr_id, "parent_id"], "x"] - df.loc[curr_id, "x"]) 
